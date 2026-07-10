@@ -36,7 +36,7 @@ async function bootstrap(): Promise<void> {
       const [users, orders, revenue, agents] = await Promise.all([
         pool.query(`SELECT COUNT(*) FROM auth.users WHERE role = 'user'`),
         pool.query(`SELECT COUNT(*), status FROM "order".orders GROUP BY status`),
-        pool.query(`SELECT COALESCE(SUM(final_amount), 0) as total FROM "order".orders WHERE status IN ('PAID','COMPLETED')`),
+        pool.query(`SELECT COALESCE(SUM(total_amount), 0) as total FROM "order".orders WHERE status IN ('PAID','COMPLETED')`),
         pool.query(`SELECT COUNT(*), approval_status FROM auth.agent_profiles GROUP BY approval_status`),
       ]);
 
@@ -99,6 +99,35 @@ async function bootstrap(): Promise<void> {
         [req.params.agentId, commissionRate],
       );
       res.json(successResponse({ message: 'Commission rate updated' }));
+    } catch (err) { next(err); }
+  });
+
+  // Revenue + orders trend for last 30 days
+  app.get('/api/admin/analytics/revenue', requireAdminRole, async (_req, res, next) => {
+    try {
+      const rows = await pool.query(`
+        SELECT
+          TO_CHAR(DATE(created_at), 'YYYY-MM-DD') AS date,
+          COALESCE(SUM(total_amount), 0)::int        AS revenue,
+          COUNT(*)::int                               AS orders
+        FROM "order".orders
+        WHERE created_at >= NOW() - INTERVAL '30 days'
+        GROUP BY DATE(created_at)
+        ORDER BY date ASC
+      `);
+      res.json(successResponse(rows.rows));
+    } catch (err) { next(err); }
+  });
+
+  // User toggle active
+  app.patch('/api/admin/users/:userId/status', requireAdminRole, async (req, res, next) => {
+    try {
+      const { isActive } = req.body;
+      await pool.query(
+        `UPDATE auth.users SET is_active = $2, updated_at = NOW() WHERE id = $1`,
+        [req.params.userId, isActive],
+      );
+      res.json(successResponse({ message: 'User status updated' }));
     } catch (err) { next(err); }
   });
 
