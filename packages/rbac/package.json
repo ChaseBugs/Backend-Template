@@ -1,0 +1,22 @@
+{
+  "name": "@ecommerce/rbac",
+  "version": "1.0.0",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@ecommerce/errors": "workspace:*",
+    "@ecommerce/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "@types/node": "^22.15.29",
+    "@types/express": "^5.0.3"
+  },
+  "peerDependencies": {
+    "express": "^5.1.0"
+  }
+}

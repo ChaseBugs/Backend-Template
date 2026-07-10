@@ -1,0 +1,56 @@
+{
+  "settings": {
+    "number_of_shards": 3,
+    "number_of_replicas": 1,
+    "analysis": {
+      "analyzer": {
+        "korean_analyzer": {
+          "type": "custom",
+          "tokenizer": "nori_tokenizer",
+          "filter": ["lowercase", "nori_readingform", "nori_number"]
+        },
+        "korean_search_analyzer": {
+          "type": "custom",
+          "tokenizer": "nori_tokenizer",
+          "filter": ["lowercase", "nori_readingform"]
+        }
+      },
+      "tokenizer": {
+        "nori_tokenizer": {
+          "type": "nori_tokenizer",
+          "decompound_mode": "mixed",
+          "discard_punctuation": true
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "id":           { "type": "keyword" },
+      "agentId":      { "type": "keyword" },
+      "categoryId":   { "type": "keyword" },
+      "name": {
+        "type": "text",
+        "analyzer": "korean_analyzer",
+        "search_analyzer": "korean_search_analyzer",
+        "fields": {
+          "keyword": { "type": "keyword", "ignore_above": 256 }
+        }
+      },
+      "description": {
+        "type": "text",
+        "analyzer": "korean_analyzer",
+        "search_analyzer": "korean_search_analyzer"
+      },
+      "price":        { "type": "integer" },
+      "comparePrice": { "type": "integer" },
+      "sku":          { "type": "keyword" },
+      "status":       { "type": "keyword" },
+      "isDeleted":    { "type": "boolean" },
+      "imageUrl":     { "type": "keyword", "index": false },
+      "tags":         { "type": "keyword" },
+      "createdAt":    { "type": "date" },
+      "updatedAt":    { "type": "date" }
+    }
+  }
+}

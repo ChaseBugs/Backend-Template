@@ -1,0 +1,26 @@
+{
+  "name": "@ecommerce/sync-worker",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "start": "node dist/index.js",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@ecommerce/errors": "workspace:*",
+    "@ecommerce/shared": "workspace:*",
+    "@ecommerce/logger": "workspace:*",
+    "@ecommerce/redis-client": "workspace:*",
+    "@ecommerce/kafka-client": "workspace:*",
+    "pg": "^8.16.0",
+    "mongodb": "^6.17.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "@types/node": "^22.15.29",
+    "@types/pg": "^8.11.14",
+    "ts-node-dev": "^2.0.0"
+  }
+}
