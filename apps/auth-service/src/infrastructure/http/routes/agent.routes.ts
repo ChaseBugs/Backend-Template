@@ -22,6 +22,14 @@ export function createAgentRouter(controller: AgentController): Router {
     controller.getPendingAgents,
   );
 
+  // list by status: ?status=PENDING|APPROVED|REJECTED
+  router.get(
+    '/',
+    authenticate,
+    requirePermission(Permission.APPROVE_AGENT),
+    controller.getAgentsByStatus,
+  );
+
   router.patch(
     '/:agentId/approve',
     authenticate,

@@ -80,12 +80,13 @@ export interface AdminOrder {
 
 export interface AgentProfile {
   id: string;
-  user_id: string;
-  business_name: string;
-  business_number: string;
-  commission_rate: number;
-  approval_status: string;
-  created_at: string;
+  userId: string;
+  businessName: string;
+  businessNumber: string;
+  commissionRate: number;
+  approvalStatus: string;
+  rejectionReason?: string;
+  createdAt: string;
 }
 
 export interface AuditLog {

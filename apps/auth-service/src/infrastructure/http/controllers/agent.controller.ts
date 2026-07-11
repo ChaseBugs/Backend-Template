@@ -20,6 +20,22 @@ export class AgentController {
     }
   };
 
+  getAgentsByStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { page, limit, offset } = buildPagination(req.query);
+      const status = (req.query.status as string | undefined)?.toUpperCase() ?? 'PENDING';
+      const allowed = ['PENDING', 'APPROVED', 'REJECTED'];
+      if (!allowed.includes(status)) {
+        res.status(400).json({ success: false, error: { code: 'INVALID_STATUS', message: 'status must be PENDING, APPROVED, or REJECTED' } });
+        return;
+      }
+      const { agents, total } = await this.agentProfileRepo.findByStatus(status, limit, offset);
+      res.json(successResponse(buildPaginatedResult(agents, total, page, limit)));
+    } catch (err) {
+      next(err);
+    }
+  };
+
   approve = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       await this.agentApprovalUseCase.approve(req.params.agentId as string, req.user!.id, req.body);

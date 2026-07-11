@@ -158,16 +158,20 @@ export class AgentProfileRepository {
   }
 
   async findPending(limit: number, offset: number, client?: PoolClient): Promise<{ agents: AgentProfile[]; total: number }> {
+    return this.findByStatus('PENDING', limit, offset, client);
+  }
+
+  async findByStatus(status: string, limit: number, offset: number, client?: PoolClient): Promise<{ agents: AgentProfile[]; total: number }> {
     const db = client ?? pool;
     const [agentsResult, countResult] = await Promise.all([
       db.query(
         `SELECT id, user_id, business_name, business_number, commission_rate,
                 approval_status, approved_by, approved_at, rejection_reason, created_at, updated_at
-         FROM agent_profiles WHERE approval_status = 'PENDING'
-         ORDER BY created_at ASC LIMIT $1 OFFSET $2`,
-        [limit, offset],
+         FROM agent_profiles WHERE approval_status = $3
+         ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
+        [limit, offset, status],
       ),
-      db.query(`SELECT COUNT(*) FROM agent_profiles WHERE approval_status = 'PENDING'`),
+      db.query(`SELECT COUNT(*) FROM agent_profiles WHERE approval_status = $1`, [status]),
     ]);
     return {
       agents: agentsResult.rows.map(this.mapProfile),
