@@ -131,6 +131,23 @@ async function bootstrap(): Promise<void> {
     } catch (err) { next(err); }
   });
 
+  // Force order status change (admin only)
+  app.patch('/api/admin/orders/:orderId/status', requireAdminRole, async (req, res, next) => {
+    try {
+      const { status } = req.body;
+      const VALID = ['PENDING','CONFIRMED','PAYMENT_PENDING','PAID','SHIPPED','COMPLETED','CANCELLED','REFUNDED'];
+      if (!VALID.includes(status)) {
+        return res.status(400).json({ success: false, error: { code: 'INVALID_STATUS', message: `status must be one of: ${VALID.join(', ')}` } });
+      }
+      const result = await pool.query(
+        `UPDATE "order".orders SET status = $2, updated_at = NOW() WHERE id = $1 RETURNING id, status`,
+        [req.params.orderId, status],
+      );
+      if (!result.rows[0]) return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Order not found' } });
+      res.json(successResponse(result.rows[0]));
+    } catch (err) { next(err); }
+  });
+
   // Audit log
   app.get('/api/admin/audit-logs', requireAdminRole, async (req, res, next) => {
     try {
