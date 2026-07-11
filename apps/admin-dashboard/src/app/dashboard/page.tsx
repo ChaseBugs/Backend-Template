@@ -7,6 +7,7 @@ import StatCard from '@/components/StatCard';
 import StatusBadge from '@/components/StatusBadge';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
+import type { DeliveryGroup } from '@/lib/api';
 
 // Load chart components client-only (Recharts needs browser env)
 const RevenueChart     = dynamic(() => import('@/components/charts/RevenueChart'),     { ssr: false });
@@ -17,18 +18,27 @@ const won = (n: number) => `₩${Math.round(n).toLocaleString('ko-KR')}`;
 const fmt = (d: string) => new Date(d).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
 export default function DashboardPage() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const fetcher = makeFetcher(token);
+  const isSuperAdmin = user?.role === 'super-admin';
 
   const { data: stats, error: statsErr } = useSWR<DashboardStats>('/api/v1/admin/dashboard', fetcher, { refreshInterval: 30000 });
   const { data: trend }  = useSWR<RevenueTrend[]>('/api/v1/admin/analytics/revenue', fetcher, { refreshInterval: 60000 });
   const { data: orders } = useSWR<{ items: AdminOrder[] }>('/api/v1/admin/orders?page=1&limit=8', fetcher, { refreshInterval: 30000 });
   const { data: pendingAgents }   = useSWR<{ items: unknown[]; total: number }>('/api/v1/agents/pending', fetcher);
   const { data: pendingProducts } = useSWR<{ items: unknown[]; total: number }>('/api/v1/admin/products/pending', fetcher);
+  const { data: deliveries } = useSWR<{ statusSummary: { status: string; count: string }[] }>(
+    '/api/v1/admin/deliveries?page=1&limit=1',
+    fetcher,
+    { refreshInterval: 30000 },
+  );
 
   const totalOrders = stats?.ordersByStatus.reduce((s, r) => s + Number(r.count), 0) ?? 0;
   const pendingAgentCount   = pendingAgents?.total ?? 0;
   const pendingProductCount = pendingProducts?.total ?? 0;
+  const deliveryStatusSummary = deliveries?.statusSummary ?? [];
+  const preparingCount = parseInt(deliveryStatusSummary.find((s) => s.status === 'PREPARING')?.count ?? '0', 10);
+  const returnCount    = parseInt(deliveryStatusSummary.find((s) => s.status === 'RETURN_REQUESTED')?.count ?? '0', 10);
 
   return (
     <div className="p-8 space-y-8">
@@ -136,37 +146,48 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Pending approvals quick panel */}
-      {(pendingAgentCount > 0 || pendingProductCount > 0) && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      {/* Pending approvals + delivery alerts */}
+      {(pendingAgentCount > 0 || pendingProductCount > 0 || preparingCount > 0 || returnCount > 0) && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {pendingAgentCount > 0 && (
-            <div className="card p-6 border-l-4 border-amber-400">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm text-slate-500">에이전트 승인 대기</p>
-                  <p className="text-3xl font-bold text-amber-500 mt-1">{pendingAgentCount}명</p>
-                </div>
-                <span className="text-3xl">🏪</span>
-              </div>
-              <Link href="/dashboard/agents" className="btn-primary mt-4 w-full justify-center text-sm">
-                지금 처리하기
-              </Link>
+            <div className="card p-5 border-l-4 border-amber-400">
+              <p className="text-xs text-slate-500">에이전트 승인 대기</p>
+              <p className="text-2xl font-bold text-amber-500 mt-1">{pendingAgentCount}명</p>
+              <Link href="/dashboard/agents" className="btn-primary mt-3 w-full justify-center text-xs py-1.5">처리하기</Link>
             </div>
           )}
           {pendingProductCount > 0 && (
-            <div className="card p-6 border-l-4 border-blue-400">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm text-slate-500">상품 승인 대기</p>
-                  <p className="text-3xl font-bold text-blue-500 mt-1">{pendingProductCount}개</p>
-                </div>
-                <span className="text-3xl">📦</span>
-              </div>
-              <Link href="/dashboard/products" className="btn-primary mt-4 w-full justify-center text-sm">
-                지금 처리하기
-              </Link>
+            <div className="card p-5 border-l-4 border-blue-400">
+              <p className="text-xs text-slate-500">상품 승인 대기</p>
+              <p className="text-2xl font-bold text-blue-500 mt-1">{pendingProductCount}개</p>
+              <Link href="/dashboard/products" className="btn-primary mt-3 w-full justify-center text-xs py-1.5">처리하기</Link>
             </div>
           )}
+          {preparingCount > 0 && (
+            <div className="card p-5 border-l-4 border-orange-400">
+              <p className="text-xs text-slate-500">배송 준비중</p>
+              <p className="text-2xl font-bold text-orange-500 mt-1">{preparingCount}건</p>
+              <Link href="/dashboard/deliveries?status=PREPARING" className="btn-ghost mt-3 w-full justify-center text-xs py-1.5">배송 현황</Link>
+            </div>
+          )}
+          {returnCount > 0 && (
+            <div className="card p-5 border-l-4 border-red-400">
+              <p className="text-xs text-slate-500">반품 요청</p>
+              <p className="text-2xl font-bold text-red-500 mt-1">{returnCount}건</p>
+              <Link href="/dashboard/deliveries" className="btn-ghost mt-3 w-full justify-center text-xs py-1.5">반품 확인</Link>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Super-admin quick links */}
+      {isSuperAdmin && (
+        <div className="card p-5 bg-purple-50 border-purple-200">
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-purple-600 font-bold text-sm">⭐ Super Admin 전용 메뉴</span>
+            <Link href="/dashboard/settlements" className="btn-primary text-xs py-1.5 bg-purple-500 hover:bg-purple-600">정산 관리</Link>
+            <Link href="/dashboard/analytics" className="btn-outline text-xs py-1.5 border-purple-300 text-purple-600">통계 분석</Link>
+          </div>
         </div>
       )}
     </div>

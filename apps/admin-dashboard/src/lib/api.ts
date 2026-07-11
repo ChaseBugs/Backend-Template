@@ -107,3 +107,60 @@ export interface Product {
   status: string;
   created_at: string;
 }
+
+export interface DeliveryGroup {
+  id: string;
+  order_id: string;
+  agent_id: string;
+  agent_name: string;
+  status: string;
+  courier_name: string | null;
+  tracking_number: string | null;
+  shipping_fee: number;
+  shipped_at: string | null;
+  delivered_at: string | null;
+  created_at: string;
+}
+
+export interface ReturnRequest {
+  id: string;
+  delivery_group_id: string;
+  user_id: string;
+  reason: string;
+  status: string;
+  refund_amount: number | null;
+  agent_name: string;
+  created_at: string;
+}
+
+export interface AgentSalesRanking {
+  id: string;
+  business_name: string;
+  order_count: number;
+  total_sales: number;
+}
+
+export interface LowStockProduct {
+  product_id: string;
+  product_name: string;
+  sku: string;
+  quantity_available: number;
+  quantity_reserved: number;
+}
+
+export interface UserRegistrationTrend {
+  date: string;
+  count: number;
+}
+
+export interface Settlement {
+  id: string;
+  agent_id: string;
+  agent_name: string;
+  order_id: string;
+  gross_amount: number;
+  commission_amount: number;
+  net_amount: number;
+  status: string;
+  created_at: string;
+}

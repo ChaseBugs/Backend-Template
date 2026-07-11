@@ -131,6 +131,127 @@ async function bootstrap(): Promise<void> {
     } catch (err) { next(err); }
   });
 
+  // Delivery groups overview
+  app.get('/api/admin/deliveries', requireAdminRole, async (req, res, next) => {
+    try {
+      const { page, limit, offset } = buildPagination(req.query as any);
+      const statusFilter = (req.query as any).status as string | undefined;
+      const where = statusFilter ? `WHERE dg.status = $3` : '';
+      const params: unknown[] = statusFilter ? [limit, offset, statusFilter] : [limit, offset];
+
+      const [rows, count, statusSummary] = await Promise.all([
+        pool.query(
+          `SELECT dg.id, dg.order_id, dg.agent_id, dg.status, dg.courier_name,
+                  dg.tracking_number, dg.shipping_fee, dg.shipped_at, dg.delivered_at,
+                  dg.created_at, ap.business_name AS agent_name
+           FROM delivery.delivery_groups dg
+           LEFT JOIN auth.agent_profiles ap ON ap.id = dg.agent_id
+           ${where}
+           ORDER BY dg.created_at DESC LIMIT $1 OFFSET $2`,
+          params,
+        ),
+        pool.query(`SELECT COUNT(*) FROM delivery.delivery_groups dg ${where}`, statusFilter ? [statusFilter] : []),
+        pool.query(`SELECT status, COUNT(*) FROM delivery.delivery_groups GROUP BY status`),
+      ]);
+
+      res.json(successResponse({
+        ...buildPaginatedResult(rows.rows, parseInt(count.rows[0].count, 10), page, limit),
+        statusSummary: statusSummary.rows,
+      }));
+    } catch (err) { next(err); }
+  });
+
+  // Return requests
+  app.get('/api/admin/returns', requireAdminRole, async (req, res, next) => {
+    try {
+      const { page, limit, offset } = buildPagination(req.query as any);
+      const [rows, count] = await Promise.all([
+        pool.query(
+          `SELECT rr.*, dg.agent_id, ap.business_name AS agent_name
+           FROM delivery.return_requests rr
+           JOIN delivery.delivery_groups dg ON dg.id = rr.delivery_group_id
+           LEFT JOIN auth.agent_profiles ap ON ap.id = dg.agent_id
+           ORDER BY rr.created_at DESC LIMIT $1 OFFSET $2`,
+          [limit, offset],
+        ),
+        pool.query(`SELECT COUNT(*) FROM delivery.return_requests`),
+      ]);
+      res.json(successResponse(buildPaginatedResult(rows.rows, parseInt(count.rows[0].count, 10), page, limit)));
+    } catch (err) { next(err); }
+  });
+
+  // Analytics: agent sales ranking
+  app.get('/api/admin/analytics/agents', requireAdminRole, async (_req, res, next) => {
+    try {
+      const rows = await pool.query(`
+        SELECT ap.id, ap.business_name,
+               COUNT(oi.id)::int        AS order_count,
+               COALESCE(SUM(oi.total_price), 0)::int AS total_sales
+        FROM auth.agent_profiles ap
+        LEFT JOIN "order".order_items oi ON oi.agent_id = ap.id
+        LEFT JOIN "order".orders o       ON o.id = oi.order_id AND o.status IN ('PAID','COMPLETED')
+        WHERE ap.approval_status = 'APPROVED'
+        GROUP BY ap.id, ap.business_name
+        ORDER BY total_sales DESC
+        LIMIT 10
+      `);
+      res.json(successResponse(rows.rows));
+    } catch (err) { next(err); }
+  });
+
+  // Analytics: low-stock products
+  app.get('/api/admin/analytics/inventory', requireAdminRole, async (_req, res, next) => {
+    try {
+      const rows = await pool.query(`
+        SELECT i.product_id, p.name AS product_name, p.sku, i.quantity_available, i.quantity_reserved
+        FROM inventory.inventories i
+        JOIN product.products p ON p.id = i.product_id
+        WHERE i.quantity_available <= 10
+        ORDER BY i.quantity_available ASC
+        LIMIT 20
+      `);
+      res.json(successResponse(rows.rows));
+    } catch (err) { next(err); }
+  });
+
+  // Analytics: new user registrations per day (last 30 days)
+  app.get('/api/admin/analytics/users', requireAdminRole, async (_req, res, next) => {
+    try {
+      const rows = await pool.query(`
+        SELECT TO_CHAR(DATE(created_at), 'YYYY-MM-DD') AS date, COUNT(*)::int AS count
+        FROM auth.users
+        WHERE created_at >= NOW() - INTERVAL '30 days' AND role = 'user'
+        GROUP BY DATE(created_at)
+        ORDER BY date ASC
+      `);
+      res.json(successResponse(rows.rows));
+    } catch (err) { next(err); }
+  });
+
+  // Settlement list (super-admin only)
+  app.get('/api/admin/settlements', requireAdminRole, async (req, res, next) => {
+    try {
+      const role = req.headers['x-user-role'];
+      if (role !== 'super-admin') {
+        return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Super-admin only' } });
+      }
+      const { page, limit, offset } = buildPagination(req.query as any);
+      const [rows, count] = await Promise.all([
+        pool.query(
+          `SELECT ps.id, ps.agent_id, ps.order_id, ps.gross_amount,
+                  ps.commission AS commission_amount, ps.net_amount, ps.status, ps.created_at,
+                  ap.business_name AS agent_name
+           FROM payment.agent_settlements ps
+           JOIN auth.agent_profiles ap ON ap.id = ps.agent_id
+           ORDER BY ps.created_at DESC LIMIT $1 OFFSET $2`,
+          [limit, offset],
+        ),
+        pool.query(`SELECT COUNT(*) FROM payment.agent_settlements`),
+      ]);
+      res.json(successResponse(buildPaginatedResult(rows.rows, parseInt(count.rows[0].count, 10), page, limit)));
+    } catch (err) { next(err); }
+  });
+
   // Force order status change (admin only)
   app.patch('/api/admin/orders/:orderId/status', requireAdminRole, async (req, res, next) => {
     try {
