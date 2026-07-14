@@ -5,7 +5,8 @@ import { createLogger } from '@ecommerce/logger';
 import { createRedisClient } from '@ecommerce/redis-client';
 import { createKafka, KafkaProducer, KafkaConsumer } from '@ecommerce/kafka-client';
 import { KafkaTopic, successResponse, errorResponse } from '@ecommerce/shared';
-import { toHttpError } from '@ecommerce/errors';
+import { toHttpError, ForbiddenError, NotFoundError } from '@ecommerce/errors';
+import { Permission, requirePermission } from '@ecommerce/rbac';
 import { config } from './config';
 import { pool } from './infrastructure/db/pool';
 import { PaymentRepository } from './domain/repositories/payment.repository';
@@ -49,7 +50,8 @@ async function bootstrap(): Promise<void> {
   const extractUser = (req: any, _res: any, next: any) => {
     const userId = req.headers['x-user-id'];
     const userRole = req.headers['x-user-role'];
-    if (userId && userRole) req.user = { id: userId, role: userRole };
+    const agentId = req.headers['x-agent-id'];
+    if (userId && userRole) req.user = { id: userId, role: userRole, agentId };
     next();
   };
 
@@ -68,24 +70,7 @@ async function bootstrap(): Promise<void> {
     } catch (err) { next(err); }
   });
 
-  app.get('/api/payments/:paymentId', extractUser, async (req: any, res: any, next: any) => {
-    try {
-      if (!req.user) return res.status(401).json({ success: false });
-      const payment = await paymentRepo.findById(req.params.paymentId);
-      res.json(successResponse(payment));
-    } catch (err) { next(err); }
-  });
-
-  app.post('/api/payments/:paymentId/refund', extractUser, async (req: any, res: any, next: any) => {
-    try {
-      if (!req.user) return res.status(401).json({ success: false });
-      const { refundAmount, reason } = req.body;
-      await processPayment.refund(req.params.paymentId, refundAmount, reason);
-      res.json(successResponse({ message: 'Refund initiated' }));
-    } catch (err) { next(err); }
-  });
-
-  // Agent settlements
+  // Agent settlements — registered before /:paymentId so "settlements" isn't swallowed as a param
   app.get('/api/payments/settlements', extractUser, async (req: any, res: any, next: any) => {
     try {
       if (!req.user?.agentId) return res.status(403).json({ success: false });
@@ -96,6 +81,31 @@ async function bootstrap(): Promise<void> {
       res.json(successResponse(result));
     } catch (err) { next(err); }
   });
+
+  app.get('/api/payments/:paymentId', extractUser, async (req: any, res: any, next: any) => {
+    try {
+      if (!req.user) return res.status(401).json({ success: false });
+      const payment = await paymentRepo.findById(req.params.paymentId);
+      if (!payment) throw new NotFoundError('Payment', req.params.paymentId);
+      const isOwner = payment.userId === req.user.id;
+      const isAdmin = req.user.role === 'admin' || req.user.role === 'super-admin';
+      if (!isOwner && !isAdmin) throw new ForbiddenError('You do not own this payment');
+      res.json(successResponse(payment));
+    } catch (err) { next(err); }
+  });
+
+  app.post(
+    '/api/payments/:paymentId/refund',
+    extractUser,
+    requirePermission(Permission.ISSUE_REFUND),
+    async (req: any, res: any, next: any) => {
+      try {
+        const { refundAmount, reason } = req.body;
+        await processPayment.refund(req.params.paymentId, refundAmount, reason);
+        res.json(successResponse({ message: 'Refund initiated' }));
+      } catch (err) { next(err); }
+    },
+  );
 
   app.use((err: unknown, _req: any, res: any, _next: any) => {
     const { statusCode, code, message, details } = toHttpError(err);

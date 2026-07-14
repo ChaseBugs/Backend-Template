@@ -12,6 +12,7 @@
   "dependencies": {
     "@ecommerce/errors": "workspace:*",
     "@ecommerce/shared": "workspace:*",
+    "@ecommerce/rbac": "workspace:*",
     "@ecommerce/logger": "workspace:*",
     "@ecommerce/redis-client": "workspace:*",
     "@ecommerce/kafka-client": "workspace:*",

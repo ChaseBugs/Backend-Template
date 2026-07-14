@@ -8,6 +8,7 @@ import { TokenService } from './domain/services/token.service';
 import { RegisterUseCase } from './application/use-cases/register.use-case';
 import { LoginUseCase } from './application/use-cases/login.use-case';
 import { RefreshTokenUseCase } from './application/use-cases/refresh-token.use-case';
+import { CreateAdminUseCase } from './application/use-cases/create-admin.use-case';
 import { AgentApprovalUseCase } from './application/use-cases/agent-approval.use-case';
 import { AuthController } from './infrastructure/http/controllers/auth.controller';
 import { AgentController } from './infrastructure/http/controllers/agent.controller';
@@ -36,10 +37,11 @@ async function bootstrap(): Promise<void> {
   );
   const loginUseCase = new LoginUseCase(userRepo, agentProfileRepo, refreshTokenRepo, tokenService);
   const refreshTokenUseCase = new RefreshTokenUseCase(userRepo, agentProfileRepo, refreshTokenRepo, tokenService);
+  const createAdminUseCase = new CreateAdminUseCase(userRepo, kafkaProducer);
   const agentApprovalUseCase = new AgentApprovalUseCase(agentProfileRepo, kafkaProducer);
 
   // Controllers
-  const authController = new AuthController(registerUseCase, loginUseCase, refreshTokenUseCase);
+  const authController = new AuthController(registerUseCase, loginUseCase, refreshTokenUseCase, createAdminUseCase);
   const agentController = new AgentController(agentApprovalUseCase, agentProfileRepo);
 
   // Express app

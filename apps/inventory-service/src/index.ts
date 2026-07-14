@@ -77,9 +77,9 @@ async function bootstrap(): Promise<void> {
 
   app.put('/api/inventory/:productId', extractUser, async (req: any, res: any, next: any) => {
     try {
-      if (!req.user) return res.status(401).json({ success: false });
+      if (!req.user?.agentId) return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Agent access required' } });
       const { quantity } = req.body;
-      await useCases.setStock(req.params.productId, req.user.agentId ?? req.user.id, quantity);
+      await useCases.setStock(req.params.productId, req.user.agentId, quantity);
       res.json(successResponse({ message: 'Stock updated' }));
     } catch (err) { next(err); }
   });

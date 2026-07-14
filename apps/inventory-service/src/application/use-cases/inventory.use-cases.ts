@@ -26,6 +26,11 @@ export class InventoryUseCases {
   }
 
   async setStock(productId: string, agentId: string, quantity: number): Promise<void> {
+    const existing = await this.repo.findByProductId(productId);
+    if (existing && existing.agentId !== agentId) {
+      throw new BadRequestError('Product does not belong to this agent');
+    }
+
     await withTransaction(async (client) => {
       await this.repo.upsert(productId, agentId, quantity, client);
       await this.repo.createMovement(
