@@ -1,10 +1,11 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import { Pool } from 'pg';
 import { createLogger } from '@ecommerce/logger';
-import { successResponse, errorResponse, buildPagination, buildPaginatedResult } from '@ecommerce/shared';
+import { UserRole, successResponse, errorResponse, buildPagination, buildPaginatedResult } from '@ecommerce/shared';
 import { toHttpError } from '@ecommerce/errors';
+import { Permission, requirePermission } from '@ecommerce/rbac';
 
 const logger = createLogger({ service: 'admin-service', level: process.env.LOG_LEVEL ?? 'info' });
 
@@ -20,18 +21,23 @@ async function bootstrap(): Promise<void> {
   app.use(cors());
   app.use(express.json());
 
-  const requireAdminRole = (req: any, res: any, next: any) => {
-    const role = req.headers['x-user-role'];
-    if (!role || !['admin', 'super-admin'].includes(role)) {
-      return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Admin access required' } });
+  const extractUser = (req: Request, _res: Response, next: NextFunction) => {
+    const userId = req.headers['x-user-id'] as string;
+    const userRole = req.headers['x-user-role'] as string;
+    const userEmail = req.headers['x-user-email'] as string;
+    const agentId = req.headers['x-agent-id'] as string | undefined;
+    if (userId && userRole) {
+      req.user = { id: userId, email: userEmail, role: userRole as UserRole, agentId };
     }
     next();
   };
 
+  app.use(extractUser);
+
   app.get('/health', (_req, res) => res.json({ status: 'ok', service: 'admin-service' }));
 
   // Dashboard summary
-  app.get('/api/admin/dashboard', requireAdminRole, async (_req, res, next) => {
+  app.get('/api/admin/dashboard', requirePermission(Permission.READ_DASHBOARD), async (_req, res, next) => {
     try {
       const [users, orders, revenue, agents] = await Promise.all([
         pool.query(`SELECT COUNT(*) FROM auth.users WHERE role = 'user'`),
@@ -50,7 +56,7 @@ async function bootstrap(): Promise<void> {
   });
 
   // User management
-  app.get('/api/admin/users', requireAdminRole, async (req, res, next) => {
+  app.get('/api/admin/users', requirePermission(Permission.READ_ALL_USERS), async (req, res, next) => {
     try {
       const { page, limit, offset } = buildPagination(req.query as any);
       const [rows, count] = await Promise.all([
@@ -62,7 +68,7 @@ async function bootstrap(): Promise<void> {
   });
 
   // Order management
-  app.get('/api/admin/orders', requireAdminRole, async (req, res, next) => {
+  app.get('/api/admin/orders', requirePermission(Permission.READ_ALL_ORDERS), async (req, res, next) => {
     try {
       const { page, limit, offset } = buildPagination(req.query as any);
       const [rows, count] = await Promise.all([
@@ -78,8 +84,8 @@ async function bootstrap(): Promise<void> {
     } catch (err) { next(err); }
   });
 
-  // Product moderation
-  app.get('/api/admin/products/pending', requireAdminRole, async (req, res, next) => {
+  // Product moderation — pending only (used by approval workflow)
+  app.get('/api/admin/products/pending', requirePermission(Permission.MODERATE_PRODUCT), async (req, res, next) => {
     try {
       const { page, limit, offset } = buildPagination(req.query as any);
       const [rows, count] = await Promise.all([
@@ -90,8 +96,106 @@ async function bootstrap(): Promise<void> {
     } catch (err) { next(err); }
   });
 
+  // All products with optional ?status= and ?agentId= filters
+  app.get('/api/admin/products', requirePermission(Permission.READ_ANY_PRODUCT), async (req, res, next) => {
+    try {
+      const { page, limit, offset } = buildPagination(req.query as any);
+      const q = req.query as Record<string, string>;
+      const conditions: string[] = [];
+      const params: unknown[] = [limit, offset];
+
+      if (q.status)  { conditions.push(`p.status = $${params.length + 1}`);   params.push(q.status); }
+      if (q.agentId) { conditions.push(`p.agent_id = $${params.length + 1}`); params.push(q.agentId); }
+      if (q.search)  {
+        conditions.push(`(p.name ILIKE $${params.length + 1} OR p.sku ILIKE $${params.length + 1})`);
+        params.push(`%${q.search}%`);
+      }
+
+      const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+      const countParams = params.slice(2); // exclude limit/offset
+
+      const [rows, count, statusSummary] = await Promise.all([
+        pool.query(
+          `SELECT p.*, ap.business_name AS agent_name,
+                  i.quantity_available
+           FROM product.products p
+           LEFT JOIN auth.agent_profiles ap ON ap.id = p.agent_id
+           LEFT JOIN inventory.inventories i ON i.product_id = p.id
+           ${where}
+           ORDER BY p.created_at DESC LIMIT $1 OFFSET $2`,
+          params,
+        ),
+        pool.query(
+          `SELECT COUNT(*) FROM product.products p ${where}`,
+          countParams,
+        ),
+        pool.query(
+          `SELECT status, COUNT(*) FROM product.products ${q.agentId ? 'WHERE agent_id = $1' : ''}
+           GROUP BY status`,
+          q.agentId ? [q.agentId] : [],
+        ),
+      ]);
+
+      res.json(successResponse({
+        ...buildPaginatedResult(rows.rows, parseInt(count.rows[0].count, 10), page, limit),
+        statusSummary: statusSummary.rows,
+      }));
+    } catch (err) { next(err); }
+  });
+
+  // Agent detail stats (for agent detail page)
+  app.get('/api/admin/agents/:agentId/stats', requirePermission(Permission.READ_ALL_AGENTS), async (req, res, next) => {
+    try {
+      const { agentId } = req.params;
+      const [profile, productCounts, salesStats, recentOrders] = await Promise.all([
+        pool.query(
+          `SELECT ap.*, u.email, u.first_name, u.last_name, u.is_active
+           FROM auth.agent_profiles ap
+           JOIN auth.users u ON u.id = ap.user_id
+           WHERE ap.id = $1`,
+          [agentId],
+        ),
+        pool.query(
+          `SELECT status, COUNT(*) FROM product.products WHERE agent_id = $1 GROUP BY status`,
+          [agentId],
+        ),
+        pool.query(
+          `SELECT COUNT(oi.id)::int AS order_count,
+                  COALESCE(SUM(oi.total_price), 0)::int AS total_sales,
+                  COALESCE(SUM(oi.total_price * ap.commission_rate / 100), 0)::int AS commission_earned
+           FROM "order".order_items oi
+           JOIN "order".orders o ON o.id = oi.order_id AND o.status IN ('PAID','COMPLETED')
+           JOIN auth.agent_profiles ap ON ap.id = oi.agent_id
+           WHERE oi.agent_id = $1`,
+          [agentId],
+        ),
+        pool.query(
+          `SELECT o.id, o.status, o.total_amount, o.created_at, u.email AS user_email
+           FROM "order".orders o
+           JOIN auth.users u ON u.id = o.user_id
+           WHERE o.id IN (
+             SELECT DISTINCT order_id FROM "order".order_items WHERE agent_id = $1
+           )
+           ORDER BY o.created_at DESC LIMIT 5`,
+          [agentId],
+        ),
+      ]);
+
+      if (!profile.rows[0]) {
+        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Agent not found' } });
+      }
+
+      res.json(successResponse({
+        profile: profile.rows[0],
+        productCounts: productCounts.rows,
+        sales: salesStats.rows[0],
+        recentOrders: recentOrders.rows,
+      }));
+    } catch (err) { next(err); }
+  });
+
   // Commission settings
-  app.patch('/api/admin/agents/:agentId/commission', requireAdminRole, async (req, res, next) => {
+  app.patch('/api/admin/agents/:agentId/commission', requirePermission(Permission.SET_COMMISSION), async (req, res, next) => {
     try {
       const { commissionRate } = req.body;
       await pool.query(
@@ -103,7 +207,7 @@ async function bootstrap(): Promise<void> {
   });
 
   // Revenue + orders trend for last 30 days
-  app.get('/api/admin/analytics/revenue', requireAdminRole, async (_req, res, next) => {
+  app.get('/api/admin/analytics/revenue', requirePermission(Permission.READ_REPORTS), async (_req, res, next) => {
     try {
       const rows = await pool.query(`
         SELECT
@@ -120,7 +224,7 @@ async function bootstrap(): Promise<void> {
   });
 
   // User toggle active
-  app.patch('/api/admin/users/:userId/status', requireAdminRole, async (req, res, next) => {
+  app.patch('/api/admin/users/:userId/status', requirePermission(Permission.UPDATE_ANY_USER), async (req, res, next) => {
     try {
       const { isActive } = req.body;
       await pool.query(
@@ -132,7 +236,7 @@ async function bootstrap(): Promise<void> {
   });
 
   // Delivery groups overview
-  app.get('/api/admin/deliveries', requireAdminRole, async (req, res, next) => {
+  app.get('/api/admin/deliveries', requirePermission(Permission.READ_ALL_DELIVERIES), async (req, res, next) => {
     try {
       const { page, limit, offset } = buildPagination(req.query as any);
       const statusFilter = (req.query as any).status as string | undefined;
@@ -162,7 +266,7 @@ async function bootstrap(): Promise<void> {
   });
 
   // Return requests
-  app.get('/api/admin/returns', requireAdminRole, async (req, res, next) => {
+  app.get('/api/admin/returns', requirePermission(Permission.READ_ALL_DELIVERIES), async (req, res, next) => {
     try {
       const { page, limit, offset } = buildPagination(req.query as any);
       const [rows, count] = await Promise.all([
@@ -181,7 +285,7 @@ async function bootstrap(): Promise<void> {
   });
 
   // Analytics: agent sales ranking
-  app.get('/api/admin/analytics/agents', requireAdminRole, async (_req, res, next) => {
+  app.get('/api/admin/analytics/agents', requirePermission(Permission.READ_REPORTS), async (_req, res, next) => {
     try {
       const rows = await pool.query(`
         SELECT ap.id, ap.business_name,
@@ -200,7 +304,7 @@ async function bootstrap(): Promise<void> {
   });
 
   // Analytics: low-stock products
-  app.get('/api/admin/analytics/inventory', requireAdminRole, async (_req, res, next) => {
+  app.get('/api/admin/analytics/inventory', requirePermission(Permission.READ_ALL_INVENTORY), async (_req, res, next) => {
     try {
       const rows = await pool.query(`
         SELECT i.product_id, p.name AS product_name, p.sku, i.quantity_available, i.quantity_reserved
@@ -215,7 +319,7 @@ async function bootstrap(): Promise<void> {
   });
 
   // Analytics: new user registrations per day (last 30 days)
-  app.get('/api/admin/analytics/users', requireAdminRole, async (_req, res, next) => {
+  app.get('/api/admin/analytics/users', requirePermission(Permission.READ_REPORTS), async (_req, res, next) => {
     try {
       const rows = await pool.query(`
         SELECT TO_CHAR(DATE(created_at), 'YYYY-MM-DD') AS date, COUNT(*)::int AS count
@@ -229,12 +333,8 @@ async function bootstrap(): Promise<void> {
   });
 
   // Settlement list (super-admin only)
-  app.get('/api/admin/settlements', requireAdminRole, async (req, res, next) => {
+  app.get('/api/admin/settlements', requirePermission(Permission.READ_SETTLEMENTS), async (req, res, next) => {
     try {
-      const role = req.headers['x-user-role'];
-      if (role !== 'super-admin') {
-        return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Super-admin only' } });
-      }
       const { page, limit, offset } = buildPagination(req.query as any);
       const [rows, count] = await Promise.all([
         pool.query(
@@ -253,7 +353,7 @@ async function bootstrap(): Promise<void> {
   });
 
   // Force order status change (admin only)
-  app.patch('/api/admin/orders/:orderId/status', requireAdminRole, async (req, res, next) => {
+  app.patch('/api/admin/orders/:orderId/status', requirePermission(Permission.UPDATE_ANY_ORDER_STATUS), async (req, res, next) => {
     try {
       const { status } = req.body;
       const VALID = ['PENDING','CONFIRMED','PAYMENT_PENDING','PAID','SHIPPED','COMPLETED','CANCELLED','REFUNDED'];
@@ -270,7 +370,7 @@ async function bootstrap(): Promise<void> {
   });
 
   // Audit log
-  app.get('/api/admin/audit-logs', requireAdminRole, async (req, res, next) => {
+  app.get('/api/admin/audit-logs', requirePermission(Permission.READ_AUDIT_LOG), async (req, res, next) => {
     try {
       const { page, limit, offset } = buildPagination(req.query as any);
       const [rows, count] = await Promise.all([

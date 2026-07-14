@@ -30,6 +30,7 @@ export enum Permission {
   READ_ALL_ORDERS = 'read:all_orders',
   CANCEL_OWN_ORDER = 'cancel:own_order',
   CANCEL_ANY_ORDER = 'cancel:any_order',
+  UPDATE_ANY_ORDER_STATUS = 'update:any_order_status',
 
   // Inventory management
   UPDATE_OWN_INVENTORY = 'update:own_inventory',
@@ -55,6 +56,7 @@ export enum Permission {
   // Admin dashboard
   READ_DASHBOARD = 'read:dashboard',
   READ_REPORTS = 'read:reports',
+  READ_SETTLEMENTS = 'read:settlements',
 }
 
 const rolePermissions: Record<UserRole, Permission[]> = {
@@ -72,6 +74,7 @@ const rolePermissions: Record<UserRole, Permission[]> = {
     Permission.MODERATE_PRODUCT,
     Permission.READ_ALL_ORDERS,
     Permission.CANCEL_ANY_ORDER,
+    Permission.UPDATE_ANY_ORDER_STATUS,
     Permission.READ_ALL_INVENTORY,
     Permission.READ_ALL_DELIVERIES,
     Permission.APPROVE_RETURN,

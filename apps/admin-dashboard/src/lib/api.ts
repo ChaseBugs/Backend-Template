@@ -101,11 +101,34 @@ export interface AuditLog {
 
 export interface Product {
   id: string;
+  agent_id: string;
+  agent_name?: string;
   name: string;
   price: number;
   sku: string;
   status: string;
+  quantity_available?: number;
+  rejection_reason?: string;
   created_at: string;
+}
+
+export interface AgentStats {
+  profile: {
+    id: string;
+    user_id: string;
+    email: string;
+    first_name: string;
+    last_name: string;
+    business_name: string;
+    business_number: string;
+    commission_rate: number;
+    approval_status: string;
+    is_active: boolean;
+    created_at: string;
+  };
+  productCounts: { status: string; count: string }[];
+  sales: { order_count: number; total_sales: number; commission_earned: number };
+  recentOrders: AdminOrder[];
 }
 
 export interface DeliveryGroup {
