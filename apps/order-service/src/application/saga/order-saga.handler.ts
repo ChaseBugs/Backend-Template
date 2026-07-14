@@ -39,7 +39,17 @@ export class OrderSagaHandler {
     await this.orderRepo.updateSaga(event.sagaId, 'COMPLETED');
     await this.orderRepo.updateStatus(event.orderId, OrderStatus.PAID, { paymentId: event.paymentId });
 
-    // Delivery-service listens to PAYMENT_COMPLETED to create DeliveryGroups
+    // Delivery-service listens to ORDER_PAID (order.events) to create DeliveryGroups —
+    // PAYMENT_COMPLETED (payment.events) never carries line items, only order-service has them.
+    await this.kafkaProducer.send(
+      KafkaTopic.ORDER_PAID,
+      {
+        topic: KafkaTopic.ORDER_PAID,
+        payload: { orderId: event.orderId, items: saga.items },
+      },
+      event.sagaId,
+    );
+
     this.logger.info({ orderId: event.orderId }, 'Order payment completed');
   }
 

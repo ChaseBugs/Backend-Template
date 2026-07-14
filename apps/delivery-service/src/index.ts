@@ -20,19 +20,18 @@ async function bootstrap(): Promise<void> {
   const repo = new DeliveryRepository();
   const useCases = new DeliveryUseCases(repo, kafkaProducer, logger);
 
-  // Listen for PAYMENT_COMPLETED to auto-create delivery groups
+  // Listen for ORDER_PAID to auto-create delivery groups. order-service emits this
+  // (not payment-service's PAYMENT_COMPLETED) because only order-service has the
+  // line items with agentId needed to split one order into per-agent delivery groups.
   const consumer = new KafkaConsumer(kafka, { groupId: config.kafka.groupId, topics: [] }, logger);
-  await consumer.connect({ topics: [KafkaTopic.PAYMENT_COMPLETED], fromBeginning: false });
+  await consumer.connect({ topics: [KafkaTopic.ORDER_PAID], fromBeginning: false });
   await consumer.run(async (payload) => {
     const event = consumer.parseMessage<any>(payload);
-    if (payload.topic === KafkaTopic.PAYMENT_COMPLETED) {
-      // In production, fetch items from order-service; here items come with event
-      if (event.payload.items) {
-        await useCases.createGroupsForOrder({
-          orderId: event.payload.orderId,
-          items: event.payload.items,
-        });
-      }
+    if (payload.topic === KafkaTopic.ORDER_PAID) {
+      await useCases.createGroupsForOrder({
+        orderId: event.payload.orderId,
+        items: event.payload.items,
+      });
     }
   });
 

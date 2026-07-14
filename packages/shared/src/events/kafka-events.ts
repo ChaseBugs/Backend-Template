@@ -21,6 +21,7 @@ export const KafkaTopic = {
   // Order events
   ORDER_CREATED: 'order.created',
   ORDER_CONFIRMED: 'order.confirmed',
+  ORDER_PAID: 'order.paid',
   ORDER_CANCELLED: 'order.cancelled',
   ORDER_COMPLETED: 'order.completed',
 
@@ -137,6 +138,14 @@ export interface OrderCreatedEvent extends BaseEvent {
   };
 }
 
+export interface OrderPaidEvent extends BaseEvent {
+  topic: typeof KafkaTopic.ORDER_PAID;
+  payload: {
+    orderId: string;
+    items: Array<{ productId: string; agentId: string; quantity: number }>;
+  };
+}
+
 export interface PaymentCompletedEvent extends BaseEvent {
   topic: typeof KafkaTopic.PAYMENT_COMPLETED;
   payload: {
@@ -226,6 +235,7 @@ export type KafkaEvent =
   | AgentApprovedEvent
   | ProductCreatedEvent
   | ProductUpdatedEvent
+  | OrderPaidEvent
   | InventoryReservedEvent
   | InventoryReservationFailedEvent
   | InventoryReleasedEvent
