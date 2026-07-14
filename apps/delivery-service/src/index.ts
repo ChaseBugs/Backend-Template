@@ -56,10 +56,17 @@ async function bootstrap(): Promise<void> {
 
   app.get('/health', (_req, res) => res.json({ status: 'ok', service: 'delivery-service' }));
 
-  // Get delivery groups for an order
+  // Get delivery groups for an order.
+  // NOTE: only the agent branch is verified here — delivery-service's schema has no
+  // record of the order's buyer, so a buyer-ownership check would need a cross-service
+  // lookup to order-service. Deferred; admin/agent access is enforced, user access is not.
   app.get('/api/deliveries/order/:orderId', extractUser, requireAuth, async (req: any, res: any, next: any) => {
     try {
       const groups = await useCases.getGroupsByOrder(req.params.orderId);
+      const isAdmin = req.user.role === 'admin' || req.user.role === 'super-admin';
+      if (req.user.role === 'agent' && !isAdmin && !groups.some((g) => g.agentId === req.user.agentId)) {
+        throw new ForbiddenError('You do not fulfill any part of this order');
+      }
       res.json(successResponse(groups));
     } catch (err) { next(err); }
   });
@@ -84,10 +91,12 @@ async function bootstrap(): Promise<void> {
     } catch (err) { next(err); }
   });
 
-  // Mark as delivered (agent or webhook)
+  // Mark as delivered (owning agent, or admin/super-admin for the logistics-webhook path)
   app.patch('/api/deliveries/:id/deliver', extractUser, requireAuth, async (req: any, res: any, next: any) => {
     try {
-      await useCases.markDelivered(req.params.id);
+      const isAdmin = req.user.role === 'admin' || req.user.role === 'super-admin';
+      if (!isAdmin && req.user.role !== 'agent') throw new ForbiddenError('Agent or admin access required');
+      await useCases.markDelivered(req.params.id, isAdmin ? undefined : req.user.agentId);
       res.json(successResponse({ message: 'Delivery marked as delivered' }));
     } catch (err) { next(err); }
   });

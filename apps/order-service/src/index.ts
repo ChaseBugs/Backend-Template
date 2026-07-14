@@ -125,7 +125,12 @@ async function bootstrap(): Promise<void> {
       if (!req.user) return res.status(401).json({ success: false });
       const order = await orderRepo.findById(req.params.id);
       if (!order) throw new NotFoundError('Order', req.params.id);
-      if (req.user.role === 'user' && order.userId !== req.user.id) throw new ForbiddenError();
+      const isAdmin = req.user.role === 'admin' || req.user.role === 'super-admin';
+      if (req.user.role === 'user') {
+        if (order.userId !== req.user.id) throw new ForbiddenError();
+      } else if (!isAdmin) {
+        throw new ForbiddenError('Only the order owner or an admin can cancel this order');
+      }
 
       await orderRepo.updateStatus(req.params.id, OrderStatus.CANCELLED, { cancelReason: req.body.reason });
       await kafkaProducer.send(

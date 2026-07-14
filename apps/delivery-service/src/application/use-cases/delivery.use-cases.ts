@@ -89,10 +89,11 @@ export class DeliveryUseCases {
     );
   }
 
-  // Mark as delivered (could be done by agent or logistics webhook)
-  async markDelivered(deliveryGroupId: string): Promise<void> {
+  // Mark as delivered — agent who owns the group, or admin/super-admin (webhook path)
+  async markDelivered(deliveryGroupId: string, agentId?: string): Promise<void> {
     const group = await this.repo.findById(deliveryGroupId);
     if (!group) throw new NotFoundError('DeliveryGroup', deliveryGroupId);
+    if (agentId && group.agentId !== agentId) throw new ForbiddenError('You do not own this delivery group');
 
     const deliveredAt = new Date();
     await this.repo.updateStatus(deliveryGroupId, DeliveryGroupStatus.DELIVERED, { deliveredAt });
