@@ -177,15 +177,43 @@ router.post('/admin/create',
 
 ## 이벤트 카탈로그 (Kafka Topics)
 
+Kafka 토픽은 이벤트 타입별로 세분화되어 있다 (`packages/shared/src/events/kafka-events.ts`의
+`KafkaTopic` 값이 실제 Kafka 토픽 이름이며, `infra/kafka/topics.sh`가 이 목록과 반드시 일치해야
+한다 — producer가 `allowAutoTopicCreation: false`로 설정되어 있어 토픽이 미리 생성되어 있지
+않으면 발행이 실패한다).
+
 | 토픽 | 발행 서비스 | 구독 서비스 |
 |------|-----------|-----------|
-| `order.events` | order-service | inventory-service, payment-service, delivery-service, sync-worker, notification-service |
-| `inventory.events` | inventory-service | order-service |
-| `payment.events` | payment-service | order-service, notification-service |
-| `product.events` | product-service | sync-worker, search-service |
-| `user.events` | auth-service | sync-worker, notification-service |
-| `agent.events` | auth-service | notification-service, admin-service |
-| `delivery.events` | delivery-service | order-service, notification-service, sync-worker |
+| `user.registered` | auth-service | sync-worker |
+| `agent.approved` | auth-service | notification-service, sync-worker |
+| `agent.rejected` | auth-service | notification-service |
+| `product.created` | product-service | search-service, sync-worker |
+| `product.updated` | product-service | search-service, sync-worker |
+| `product.deleted` | product-service | search-service, sync-worker |
+| `product.approved` | product-service | search-service, sync-worker |
+| `product.rejected` | product-service | (미사용 — 구독자 없음) |
+| `inventory.reserved` | inventory-service | order-service |
+| `inventory.reservation.failed` | inventory-service | order-service |
+| `inventory.released` | inventory-service | (미사용 — 구독자 없음) |
+| `inventory.deducted` | inventory-service | sync-worker |
+| `stock.low` | (미발행 — 예약됨) | — |
+| `order.created` | order-service | inventory-service, notification-service, sync-worker |
+| `order.confirmed` | order-service | payment-service |
+| `order.paid` | order-service | delivery-service |
+| `order.cancelled` | order-service | inventory-service, sync-worker |
+| `order.completed` | order-service | sync-worker |
+| `payment.completed` | payment-service | order-service, inventory-service, notification-service, sync-worker |
+| `payment.failed` | payment-service | order-service, inventory-service, notification-service |
+| `payment.refunded` | payment-service | (미사용 — 구독자 없음) |
+| `delivery.group.created` | delivery-service | (미사용 — 구독자 없음) |
+| `delivery.shipped` | delivery-service | notification-service, sync-worker |
+| `delivery.delivered` | delivery-service | notification-service, sync-worker |
+| `delivery.all.completed` | delivery-service | order-service |
+| `delivery.return.requested` | delivery-service | payment-service |
+| `delivery.return.completed` | (미발행 — 예약됨) | — |
+
+새 이벤트 타입을 추가할 때는 `kafka-events.ts`의 `KafkaTopic`과 `infra/kafka/topics.sh`를
+함께 갱신할 것.
 
 ---
 

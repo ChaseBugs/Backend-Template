@@ -27,16 +27,52 @@ create_topic() {
 
 echo "=== Creating Kafka topics ==="
 
-# Domain event topics (7 days retention)
-create_topic "order.events"
-create_topic "inventory.events"
-create_topic "payment.events"
-create_topic "product.events"
-create_topic "user.events"
-create_topic "agent.events"
-create_topic "delivery.events"
+# Domain event topics (7 days retention).
+# One topic per event type (matches packages/shared/src/events/kafka-events.ts
+# KafkaTopic values exactly — producers/consumers use these literal names and
+# allowAutoTopicCreation is disabled, so this list must stay in sync with that file).
 
-# Dead letter queues (30 days retention)
+# Auth events
+create_topic "user.registered"
+create_topic "agent.approved"
+create_topic "agent.rejected"
+
+# Product events
+create_topic "product.created"
+create_topic "product.updated"
+create_topic "product.deleted"
+create_topic "product.approved"
+create_topic "product.rejected"
+
+# Inventory events
+create_topic "inventory.reserved"
+create_topic "inventory.reservation.failed"
+create_topic "inventory.released"
+create_topic "inventory.deducted"
+create_topic "stock.low"
+
+# Order events
+create_topic "order.created"
+create_topic "order.confirmed"
+create_topic "order.paid"
+create_topic "order.cancelled"
+create_topic "order.completed"
+
+# Payment events
+create_topic "payment.completed"
+create_topic "payment.failed"
+create_topic "payment.refunded"
+
+# Delivery events
+create_topic "delivery.group.created"
+create_topic "delivery.shipped"
+create_topic "delivery.delivered"
+create_topic "delivery.all.completed"
+create_topic "delivery.return.requested"
+create_topic "delivery.return.completed"
+
+# Dead letter queues (30 days retention) — one per domain, unused until
+# consumer error handling is wired to actually produce to these.
 create_topic "order.events.dlq"       2 2592000000
 create_topic "inventory.events.dlq"   2 2592000000
 create_topic "payment.events.dlq"     2 2592000000
