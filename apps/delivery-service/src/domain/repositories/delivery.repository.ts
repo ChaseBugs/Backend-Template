@@ -75,6 +75,15 @@ export class DeliveryRepository {
     return { groups: rows.rows.map(this.mapGroup), total: parseInt(count.rows[0].count, 10) };
   }
 
+  async getAgentStatusCounts(agentId: string, client?: PoolClient): Promise<Array<{ status: string; count: number }>> {
+    const db = client ?? pool;
+    const result = await db.query(
+      `SELECT status, COUNT(*)::int AS count FROM delivery_groups WHERE agent_id = $1 GROUP BY status`,
+      [agentId],
+    );
+    return result.rows.map((row) => ({ status: row.status as string, count: Number(row.count) }));
+  }
+
   async updateStatus(id: string, status: DeliveryGroupStatus, extra?: {
     courierName?: string; trackingNumber?: string; shippedAt?: Date; deliveredAt?: Date; returnedAt?: Date;
   }, client?: PoolClient): Promise<void> {

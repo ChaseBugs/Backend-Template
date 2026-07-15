@@ -5,6 +5,7 @@ import { Counter, createHttpObservability, createLogger, createReadinessHandler 
 import { createKafka, KafkaProducer, KafkaConsumer } from '@ecommerce/kafka-client';
 import { KafkaTopic, DeliveryGroupStatus, successResponse, errorResponse, buildPagination, buildPaginatedResult } from '@ecommerce/shared';
 import { toHttpError, ForbiddenError, NotFoundError } from '@ecommerce/errors';
+import { buildFulfillmentSummary } from './application/fulfillment-summary';
 import { config } from './config';
 import { pool } from './infrastructure/db/pool';
 import { DeliveryRepository } from './domain/repositories/delivery.repository';
@@ -136,6 +137,15 @@ async function bootstrap(): Promise<void> {
       }
       const { groups, total } = await useCases.getAgentGroups(req.user.agentId, page, limit, status);
       res.json(successResponse(buildPaginatedResult(groups, total, page, limit)));
+    } catch (err) { next(err); }
+  });
+
+  // Seller dashboard: fulfillment queue counts bucketed by status.
+  app.get('/api/deliveries/my/summary', extractUser, requireAuth, async (req: any, res: any, next: any) => {
+    try {
+      if (req.user.role !== 'agent') throw new ForbiddenError('Agent access required');
+      const rows = await repo.getAgentStatusCounts(req.user.agentId);
+      res.json(successResponse(buildFulfillmentSummary(rows)));
     } catch (err) { next(err); }
   });
 
