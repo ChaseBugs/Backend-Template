@@ -1,9 +1,85 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { Permission, hasPermission } from '../packages/rbac/dist/index.js';
+import { UserRole } from '../packages/shared/dist/index.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const output = resolve(root, 'docs/openapi.json');
+
+const ROLE_ORDER = [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.AGENT, UserRole.USER];
+const roleTag = (role) => `Role: ${role}`;
+
+// Route source files scanned both for the coverage check and for role derivation.
+const routeSources = [
+  ['apps/auth-service/src/infrastructure/http/routes/auth.routes.ts', '/api/v1/auth', 'router'],
+  ['apps/auth-service/src/infrastructure/http/routes/agent.routes.ts', '/api/v1/agents', 'router'],
+  ['apps/auth-service/src/infrastructure/http/routes/user.routes.ts', '/api/v1/users', 'router'],
+  ['apps/product-service/src/infrastructure/http/routes/product.routes.ts', '/api/v1/products', 'router'],
+  ...['search', 'review', 'notification', 'admin', 'cart', 'order', 'payment', 'delivery', 'inventory'].map((service) => [`apps/${service}-service/src/index.ts`, '', 'app']),
+];
+
+function normalizeRoutePath(prefix, rawPath) {
+  let path = rawPath;
+  if (!prefix) {
+    if (!path.startsWith('/api/')) return null;
+    path = `/api/v1${path.slice(4)}`;
+  } else {
+    path = `${prefix}${path === '/' ? '' : path}`;
+  }
+  return path.replace(/:([A-Za-z0-9_]+)/g, '{$1}');
+}
+
+// Derives which roles may call each gateway route by reading the actual guards
+// in the route code (requirePermission / requireRole / requireApprovedAgent) and
+// resolving permissions through the shared RBAC map. Inline `req.user.role` checks
+// in service handlers are picked up as a fallback.
+async function deriveRoleGuards() {
+  const map = new Map();
+  for (const [file, prefix, receiver] of routeSources) {
+    const source = await readFile(resolve(root, file), 'utf8');
+    const expression = new RegExp(`${receiver}\\.(get|post|put|patch|delete)\\(\\s*['\"]([^'\"]+)`, 'g');
+    const matches = [...source.matchAll(expression)];
+    for (let i = 0; i < matches.length; i += 1) {
+      const method = matches[i][1].toUpperCase();
+      const path = normalizeRoutePath(prefix, matches[i][2]);
+      if (!path) continue;
+      const start = matches[i].index;
+      const end = i + 1 < matches.length ? matches[i + 1].index : Math.min(source.length, start + 900);
+      const block = source.slice(start, end);
+      const handlerAt = ['=> {', 'async (', 'controller.', ', (req'].map((s) => block.indexOf(s)).filter((n) => n >= 0);
+      const header = block.slice(0, handlerAt.length ? Math.min(...handlerAt) : block.length);
+
+      const roles = new Set();
+      for (const pm of header.matchAll(/requirePermission\(\s*Permission\.([A-Z_]+)\s*\)/g)) {
+        const perm = Permission[pm[1]];
+        if (perm !== undefined) for (const role of ROLE_ORDER) if (hasPermission(role, perm)) roles.add(role);
+      }
+      for (const rm of header.matchAll(/requireRole\(([^)]*)\)/g)) {
+        for (const um of rm[1].matchAll(/UserRole\.([A-Z_]+)/g)) if (UserRole[um[1]]) roles.add(UserRole[um[1]]);
+      }
+      if (/requireApprovedAgent/.test(header)) roles.add(UserRole.AGENT);
+      if (roles.size === 0) {
+        for (const lit of block.matchAll(/'(super-admin|admin|agent|user)'/g)) roles.add(lit[1]);
+      }
+
+      const key = `${method} ${path}`;
+      if (!map.has(key)) map.set(key, new Set());
+      for (const role of roles) map.get(key).add(role);
+    }
+  }
+  return map;
+}
+
+const rolesByRoute = await deriveRoleGuards();
+
+function rolesForRoute(method, apiPath, isPublic) {
+  if (isPublic) return ['public'];
+  const derived = rolesByRoute.get(`${method} ${apiPath}`);
+  const set = derived && derived.size ? [...derived] : [...ROLE_ORDER];
+  const ordered = ROLE_ORDER.filter((role) => set.includes(role));
+  return ordered.length ? ordered : [...ROLE_ORDER];
+}
 
 const routes = {
   auth: {
@@ -141,8 +217,9 @@ for (const [tag, access] of Object.entries(routes)) {
       for (const [name, schema] of Object.entries(querySchemas[route] ?? {})) {
         parameters.push({ name, in: 'query', required: false, schema });
       }
+      const opRoles = rolesForRoute(method, `/api/v1${path}`, visibility === 'public');
       const operation = {
-        tags: [tag], operationId: operationId(method, path), summary: `${method} ${path}`,
+        tags: [...opRoles.map(roleTag), tag], 'x-roles': opRoles, operationId: operationId(method, path), summary: `${method} ${path}`,
         ...(visibility === 'secured' ? { security: [{ bearerAuth: [] }] } : {}),
         ...(parameters.length ? { parameters } : {}),
         responses: {
@@ -168,7 +245,14 @@ const document = {
   openapi: '3.1.0',
   info: { title: 'E-commerce Backend API', version: '1.0.0', description: 'Public API exposed by the API gateway. Internal service-to-service endpoints are intentionally excluded.' },
   servers: [{ url: 'http://localhost:3000', description: 'Local API gateway' }],
-  tags: Object.keys(routes).map((name) => ({ name })),
+  tags: [
+    { name: roleTag(UserRole.SUPER_ADMIN), description: 'Endpoints callable by super-admin (full system authority).' },
+    { name: roleTag(UserRole.ADMIN), description: 'Endpoints callable by platform admins.' },
+    { name: roleTag(UserRole.AGENT), description: 'Endpoints callable by approved seller agents.' },
+    { name: roleTag(UserRole.USER), description: 'Endpoints callable by consumers.' },
+    { name: roleTag('public'), description: 'No authentication required.' },
+    ...Object.keys(routes).map((name) => ({ name, description: `${name} service` })),
+  ],
   paths,
   components: {
     securitySchemes: { bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' } },
@@ -179,14 +263,6 @@ const document = {
     responses: { BadRequest: errorResponse('Invalid request'), Unauthorized: errorResponse('Authentication required'), Forbidden: errorResponse('Insufficient permission'), ServerError: errorResponse('Internal server error') },
   },
 };
-
-const routeSources = [
-  ['apps/auth-service/src/infrastructure/http/routes/auth.routes.ts', '/api/v1/auth', 'router'],
-  ['apps/auth-service/src/infrastructure/http/routes/agent.routes.ts', '/api/v1/agents', 'router'],
-  ['apps/auth-service/src/infrastructure/http/routes/user.routes.ts', '/api/v1/users', 'router'],
-  ['apps/product-service/src/infrastructure/http/routes/product.routes.ts', '/api/v1/products', 'router'],
-  ...['search', 'review', 'notification', 'admin', 'cart', 'order', 'payment', 'delivery', 'inventory'].map((service) => [`apps/${service}-service/src/index.ts`, '', 'app']),
-];
 
 const discovered = new Set();
 for (const [file, prefix, receiver] of routeSources) {

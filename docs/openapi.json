@@ -13,50 +13,87 @@
   ],
   "tags": [
     {
-      "name": "auth"
+      "name": "Role: super-admin",
+      "description": "Endpoints callable by super-admin (full system authority)."
     },
     {
-      "name": "agents"
+      "name": "Role: admin",
+      "description": "Endpoints callable by platform admins."
     },
     {
-      "name": "users"
+      "name": "Role: agent",
+      "description": "Endpoints callable by approved seller agents."
     },
     {
-      "name": "products"
+      "name": "Role: user",
+      "description": "Endpoints callable by consumers."
     },
     {
-      "name": "search"
+      "name": "Role: public",
+      "description": "No authentication required."
     },
     {
-      "name": "cart"
+      "name": "auth",
+      "description": "auth service"
     },
     {
-      "name": "orders"
+      "name": "agents",
+      "description": "agents service"
     },
     {
-      "name": "payments"
+      "name": "users",
+      "description": "users service"
     },
     {
-      "name": "inventory"
+      "name": "products",
+      "description": "products service"
     },
     {
-      "name": "deliveries"
+      "name": "search",
+      "description": "search service"
     },
     {
-      "name": "notifications"
+      "name": "cart",
+      "description": "cart service"
     },
     {
-      "name": "reviews"
+      "name": "orders",
+      "description": "orders service"
     },
     {
-      "name": "admin"
+      "name": "payments",
+      "description": "payments service"
+    },
+    {
+      "name": "inventory",
+      "description": "inventory service"
+    },
+    {
+      "name": "deliveries",
+      "description": "deliveries service"
+    },
+    {
+      "name": "notifications",
+      "description": "notifications service"
+    },
+    {
+      "name": "reviews",
+      "description": "reviews service"
+    },
+    {
+      "name": "admin",
+      "description": "admin service"
     }
   ],
   "paths": {
     "/api/v1/auth/register": {
       "post": {
         "tags": [
+          "Role: public",
           "auth"
+        ],
+        "x-roles": [
+          "public"
         ],
         "operationId": "postAuthRegister",
         "summary": "POST /auth/register",
@@ -173,7 +210,11 @@
     "/api/v1/auth/login": {
       "post": {
         "tags": [
+          "Role: public",
           "auth"
+        ],
+        "x-roles": [
+          "public"
         ],
         "operationId": "postAuthLogin",
         "summary": "POST /auth/login",
@@ -224,7 +265,11 @@
     "/api/v1/auth/refresh": {
       "post": {
         "tags": [
+          "Role: public",
           "auth"
+        ],
+        "x-roles": [
+          "public"
         ],
         "operationId": "postAuthRefresh",
         "summary": "POST /auth/refresh",
@@ -270,7 +315,17 @@
     "/api/v1/auth/logout": {
       "post": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "Role: agent",
+          "Role: user",
           "auth"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin",
+          "agent",
+          "user"
         ],
         "operationId": "postAuthLogout",
         "summary": "POST /auth/logout",
@@ -327,7 +382,17 @@
     "/api/v1/auth/me": {
       "get": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "Role: agent",
+          "Role: user",
           "auth"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin",
+          "agent",
+          "user"
         ],
         "operationId": "getAuthMe",
         "summary": "GET /auth/me",
@@ -386,7 +451,11 @@
     "/api/v1/auth/admin/create": {
       "post": {
         "tags": [
+          "Role: super-admin",
           "auth"
+        ],
+        "x-roles": [
+          "super-admin"
         ],
         "operationId": "postAuthAdminCreate",
         "summary": "POST /auth/admin/create",
@@ -476,7 +545,11 @@
     "/api/v1/agents/{agentId}/shipping-policy": {
       "get": {
         "tags": [
+          "Role: public",
           "agents"
+        ],
+        "x-roles": [
+          "public"
         ],
         "operationId": "getAgentsAgentIdShippingpolicy",
         "summary": "GET /agents/{agentId}/shipping-policy",
@@ -513,7 +586,13 @@
     "/api/v1/agents": {
       "get": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
           "agents"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin"
         ],
         "operationId": "getAgents",
         "summary": "GET /agents",
@@ -572,7 +651,13 @@
     "/api/v1/agents/pending": {
       "get": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
           "agents"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin"
         ],
         "operationId": "getAgentsPending",
         "summary": "GET /agents/pending",
@@ -631,7 +716,13 @@
     "/api/v1/agents/{agentId}/approve": {
       "patch": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
           "agents"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin"
         ],
         "operationId": "patchAgentsAgentIdApprove",
         "summary": "PATCH /agents/{agentId}/approve",
@@ -697,7 +788,13 @@
     "/api/v1/agents/{agentId}/reject": {
       "patch": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
           "agents"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin"
         ],
         "operationId": "patchAgentsAgentIdReject",
         "summary": "PATCH /agents/{agentId}/reject",
@@ -766,7 +863,11 @@
     "/api/v1/agents/me": {
       "get": {
         "tags": [
+          "Role: agent",
           "agents"
+        ],
+        "x-roles": [
+          "agent"
         ],
         "operationId": "getAgentsMe",
         "summary": "GET /agents/me",
@@ -825,7 +926,11 @@
     "/api/v1/agents/shipping-policy": {
       "get": {
         "tags": [
+          "Role: agent",
           "agents"
+        ],
+        "x-roles": [
+          "agent"
         ],
         "operationId": "getAgentsShippingpolicy",
         "summary": "GET /agents/shipping-policy",
@@ -882,7 +987,11 @@
       },
       "put": {
         "tags": [
+          "Role: agent",
           "agents"
+        ],
+        "x-roles": [
+          "agent"
         ],
         "operationId": "putAgentsShippingpolicy",
         "summary": "PUT /agents/shipping-policy",
@@ -962,7 +1071,13 @@
     "/api/v1/users": {
       "get": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
           "users"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin"
         ],
         "operationId": "getUsers",
         "summary": "GET /users",
@@ -1021,7 +1136,17 @@
     "/api/v1/users/{userId}": {
       "get": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "Role: agent",
+          "Role: user",
           "users"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin",
+          "agent",
+          "user"
         ],
         "operationId": "getUsersUserId",
         "summary": "GET /users/{userId}",
@@ -1069,7 +1194,11 @@
     "/api/v1/users/{userId}/role": {
       "patch": {
         "tags": [
+          "Role: super-admin",
           "users"
+        ],
+        "x-roles": [
+          "super-admin"
         ],
         "operationId": "patchUsersUserIdRole",
         "summary": "PATCH /users/{userId}/role",
@@ -1140,7 +1269,13 @@
     "/api/v1/users/{userId}/deactivate": {
       "patch": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
           "users"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin"
         ],
         "operationId": "patchUsersUserIdDeactivate",
         "summary": "PATCH /users/{userId}/deactivate",
@@ -1188,7 +1323,13 @@
     "/api/v1/users/{userId}/activate": {
       "patch": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
           "users"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin"
         ],
         "operationId": "patchUsersUserIdActivate",
         "summary": "PATCH /users/{userId}/activate",
@@ -1236,7 +1377,11 @@
     "/api/v1/products": {
       "get": {
         "tags": [
+          "Role: public",
           "products"
+        ],
+        "x-roles": [
+          "public"
         ],
         "operationId": "getProducts",
         "summary": "GET /products",
@@ -1282,7 +1427,11 @@
       },
       "post": {
         "tags": [
+          "Role: agent",
           "products"
+        ],
+        "x-roles": [
+          "agent"
         ],
         "operationId": "postProducts",
         "summary": "POST /products",
@@ -1448,7 +1597,11 @@
     "/api/v1/products/{id}": {
       "get": {
         "tags": [
+          "Role: public",
           "products"
+        ],
+        "x-roles": [
+          "public"
         ],
         "operationId": "getProductsId",
         "summary": "GET /products/{id}",
@@ -1483,7 +1636,11 @@
       },
       "patch": {
         "tags": [
+          "Role: agent",
           "products"
+        ],
+        "x-roles": [
+          "agent"
         ],
         "operationId": "patchProductsId",
         "summary": "PATCH /products/{id}",
@@ -1585,7 +1742,11 @@
       },
       "delete": {
         "tags": [
+          "Role: agent",
           "products"
+        ],
+        "x-roles": [
+          "agent"
         ],
         "operationId": "deleteProductsId",
         "summary": "DELETE /products/{id}",
@@ -1633,7 +1794,11 @@
     "/api/v1/products/catalog/search": {
       "get": {
         "tags": [
+          "Role: public",
           "products"
+        ],
+        "x-roles": [
+          "public"
         ],
         "operationId": "getProductsCatalogSearch",
         "summary": "GET /products/catalog/search",
@@ -1700,7 +1865,11 @@
     "/api/v1/products/catalog/variants/{variantId}/offers": {
       "get": {
         "tags": [
+          "Role: public",
           "products"
+        ],
+        "x-roles": [
+          "public"
         ],
         "operationId": "getProductsCatalogVariantsVariantIdOffers",
         "summary": "GET /products/catalog/variants/{variantId}/offers",
@@ -1737,7 +1906,13 @@
     "/api/v1/products/pending": {
       "get": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
           "products"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin"
         ],
         "operationId": "getProductsPending",
         "summary": "GET /products/pending",
@@ -1796,7 +1971,11 @@
     "/api/v1/products/my": {
       "get": {
         "tags": [
+          "Role: agent",
           "products"
+        ],
+        "x-roles": [
+          "agent"
         ],
         "operationId": "getProductsMy",
         "summary": "GET /products/my",
@@ -1855,7 +2034,11 @@
     "/api/v1/products/catalog/variants/{variantId}/buybox": {
       "get": {
         "tags": [
+          "Role: agent",
           "products"
+        ],
+        "x-roles": [
+          "agent"
         ],
         "operationId": "getProductsCatalogVariantsVariantIdBuybox",
         "summary": "GET /products/catalog/variants/{variantId}/buybox",
@@ -1903,7 +2086,13 @@
     "/api/v1/products/{id}/approve": {
       "patch": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
           "products"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin"
         ],
         "operationId": "patchProductsIdApprove",
         "summary": "PATCH /products/{id}/approve",
@@ -1951,7 +2140,13 @@
     "/api/v1/products/{id}/reject": {
       "patch": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
           "products"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin"
         ],
         "operationId": "patchProductsIdReject",
         "summary": "PATCH /products/{id}/reject",
@@ -2020,7 +2215,11 @@
     "/api/v1/search": {
       "get": {
         "tags": [
+          "Role: public",
           "search"
+        ],
+        "x-roles": [
+          "public"
         ],
         "operationId": "getSearch",
         "summary": "GET /search",
@@ -2068,7 +2267,11 @@
     "/api/v1/search/popular": {
       "get": {
         "tags": [
+          "Role: public",
           "search"
+        ],
+        "x-roles": [
+          "public"
         ],
         "operationId": "getSearchPopular",
         "summary": "GET /search/popular",
@@ -2116,7 +2319,11 @@
     "/api/v1/search/autocomplete": {
       "get": {
         "tags": [
+          "Role: public",
           "search"
+        ],
+        "x-roles": [
+          "public"
         ],
         "operationId": "getSearchAutocomplete",
         "summary": "GET /search/autocomplete",
@@ -2164,7 +2371,17 @@
     "/api/v1/cart": {
       "get": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "Role: agent",
+          "Role: user",
           "cart"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin",
+          "agent",
+          "user"
         ],
         "operationId": "getCart",
         "summary": "GET /cart",
@@ -2221,7 +2438,17 @@
       },
       "delete": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "Role: agent",
+          "Role: user",
           "cart"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin",
+          "agent",
+          "user"
         ],
         "operationId": "deleteCart",
         "summary": "DELETE /cart",
@@ -2259,7 +2486,17 @@
     "/api/v1/cart/items": {
       "post": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "Role: agent",
+          "Role: user",
           "cart"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin",
+          "agent",
+          "user"
         ],
         "operationId": "postCartItems",
         "summary": "POST /cart/items",
@@ -2322,7 +2559,17 @@
     "/api/v1/cart/items/{productId}": {
       "patch": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "Role: agent",
+          "Role: user",
           "cart"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin",
+          "agent",
+          "user"
         ],
         "operationId": "patchCartItemsProductId",
         "summary": "PATCH /cart/items/{productId}",
@@ -2388,7 +2635,17 @@
       },
       "delete": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "Role: agent",
+          "Role: user",
           "cart"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin",
+          "agent",
+          "user"
         ],
         "operationId": "deleteCartItemsProductId",
         "summary": "DELETE /cart/items/{productId}",
@@ -2436,7 +2693,17 @@
     "/api/v1/orders": {
       "post": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "Role: agent",
+          "Role: user",
           "orders"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin",
+          "agent",
+          "user"
         ],
         "operationId": "postOrders",
         "summary": "POST /orders",
@@ -2577,7 +2844,13 @@
       },
       "get": {
         "tags": [
+          "Role: agent",
+          "Role: user",
           "orders"
+        ],
+        "x-roles": [
+          "agent",
+          "user"
         ],
         "operationId": "getOrders",
         "summary": "GET /orders",
@@ -2636,7 +2909,13 @@
     "/api/v1/orders/agent/summary": {
       "get": {
         "tags": [
+          "Role: super-admin",
+          "Role: agent",
           "orders"
+        ],
+        "x-roles": [
+          "super-admin",
+          "agent"
         ],
         "operationId": "getOrdersAgentSummary",
         "summary": "GET /orders/agent/summary",
@@ -2715,7 +2994,13 @@
     "/api/v1/orders/{id}": {
       "get": {
         "tags": [
+          "Role: agent",
+          "Role: user",
           "orders"
+        ],
+        "x-roles": [
+          "agent",
+          "user"
         ],
         "operationId": "getOrdersId",
         "summary": "GET /orders/{id}",
@@ -2763,7 +3048,17 @@
     "/api/v1/orders/{id}/cancel": {
       "patch": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "Role: agent",
+          "Role: user",
           "orders"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin",
+          "agent",
+          "user"
         ],
         "operationId": "patchOrdersIdCancel",
         "summary": "PATCH /orders/{id}/cancel",
@@ -2832,7 +3127,17 @@
     "/api/v1/payments": {
       "post": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "Role: agent",
+          "Role: user",
           "payments"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin",
+          "agent",
+          "user"
         ],
         "operationId": "postPayments",
         "summary": "POST /payments",
@@ -2915,7 +3220,17 @@
     "/api/v1/payments/settlements": {
       "get": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "Role: agent",
+          "Role: user",
           "payments"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin",
+          "agent",
+          "user"
         ],
         "operationId": "getPaymentsSettlements",
         "summary": "GET /payments/settlements",
@@ -2974,7 +3289,13 @@
     "/api/v1/payments/settlements/summary": {
       "get": {
         "tags": [
+          "Role: super-admin",
+          "Role: agent",
           "payments"
+        ],
+        "x-roles": [
+          "super-admin",
+          "agent"
         ],
         "operationId": "getPaymentsSettlementsSummary",
         "summary": "GET /payments/settlements/summary",
@@ -3033,7 +3354,13 @@
     "/api/v1/payments/{paymentId}": {
       "get": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
           "payments"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin"
         ],
         "operationId": "getPaymentsPaymentId",
         "summary": "GET /payments/{paymentId}",
@@ -3081,7 +3408,13 @@
     "/api/v1/payments/{paymentId}/refund": {
       "post": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
           "payments"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin"
         ],
         "operationId": "postPaymentsPaymentIdRefund",
         "summary": "POST /payments/{paymentId}/refund",
@@ -3161,7 +3494,13 @@
     "/api/v1/inventory/agent/summary": {
       "get": {
         "tags": [
+          "Role: super-admin",
+          "Role: agent",
           "inventory"
+        ],
+        "x-roles": [
+          "super-admin",
+          "agent"
         ],
         "operationId": "getInventoryAgentSummary",
         "summary": "GET /inventory/agent/summary",
@@ -3220,7 +3559,17 @@
     "/api/v1/inventory/{productId}": {
       "get": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "Role: agent",
+          "Role: user",
           "inventory"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin",
+          "agent",
+          "user"
         ],
         "operationId": "getInventoryProductId",
         "summary": "GET /inventory/{productId}",
@@ -3266,7 +3615,13 @@
       },
       "put": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
           "inventory"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin"
         ],
         "operationId": "putInventoryProductId",
         "summary": "PUT /inventory/{productId}",
@@ -3334,7 +3689,13 @@
     "/api/v1/inventory/{productId}/adjust": {
       "patch": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
           "inventory"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin"
         ],
         "operationId": "patchInventoryProductIdAdjust",
         "summary": "PATCH /inventory/{productId}/adjust",
@@ -3408,7 +3769,17 @@
     "/api/v1/deliveries/order/{orderId}": {
       "get": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "Role: agent",
+          "Role: user",
           "deliveries"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin",
+          "agent",
+          "user"
         ],
         "operationId": "getDeliveriesOrderOrderId",
         "summary": "GET /deliveries/order/{orderId}",
@@ -3456,7 +3827,11 @@
     "/api/v1/deliveries/my": {
       "get": {
         "tags": [
+          "Role: agent",
           "deliveries"
+        ],
+        "x-roles": [
+          "agent"
         ],
         "operationId": "getDeliveriesMy",
         "summary": "GET /deliveries/my",
@@ -3515,7 +3890,11 @@
     "/api/v1/deliveries/my/summary": {
       "get": {
         "tags": [
+          "Role: agent",
           "deliveries"
+        ],
+        "x-roles": [
+          "agent"
         ],
         "operationId": "getDeliveriesMySummary",
         "summary": "GET /deliveries/my/summary",
@@ -3574,7 +3953,11 @@
     "/api/v1/deliveries/my/pending": {
       "get": {
         "tags": [
+          "Role: agent",
           "deliveries"
+        ],
+        "x-roles": [
+          "agent"
         ],
         "operationId": "getDeliveriesMyPending",
         "summary": "GET /deliveries/my/pending",
@@ -3633,7 +4016,15 @@
     "/api/v1/deliveries/{id}/ship": {
       "patch": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "Role: agent",
           "deliveries"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin",
+          "agent"
         ],
         "operationId": "patchDeliveriesIdShip",
         "summary": "PATCH /deliveries/{id}/ship",
@@ -3708,7 +4099,15 @@
     "/api/v1/deliveries/{id}/deliver": {
       "patch": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "Role: agent",
           "deliveries"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin",
+          "agent"
         ],
         "operationId": "patchDeliveriesIdDeliver",
         "summary": "PATCH /deliveries/{id}/deliver",
@@ -3756,7 +4155,13 @@
     "/api/v1/deliveries/{id}/status": {
       "patch": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
           "deliveries"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin"
         ],
         "operationId": "patchDeliveriesIdStatus",
         "summary": "PATCH /deliveries/{id}/status",
@@ -3833,7 +4238,11 @@
     "/api/v1/deliveries/{id}/confirm": {
       "post": {
         "tags": [
+          "Role: user",
           "deliveries"
+        ],
+        "x-roles": [
+          "user"
         ],
         "operationId": "postDeliveriesIdConfirm",
         "summary": "POST /deliveries/{id}/confirm",
@@ -3881,7 +4290,17 @@
     "/api/v1/deliveries/{id}/return": {
       "post": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "Role: agent",
+          "Role: user",
           "deliveries"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin",
+          "agent",
+          "user"
         ],
         "operationId": "postDeliveriesIdReturn",
         "summary": "POST /deliveries/{id}/return",
@@ -3950,7 +4369,17 @@
     "/api/v1/notifications": {
       "get": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "Role: agent",
+          "Role: user",
           "notifications"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin",
+          "agent",
+          "user"
         ],
         "operationId": "getNotifications",
         "summary": "GET /notifications",
@@ -4009,7 +4438,17 @@
     "/api/v1/notifications/{id}/read": {
       "patch": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "Role: agent",
+          "Role: user",
           "notifications"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin",
+          "agent",
+          "user"
         ],
         "operationId": "patchNotificationsIdRead",
         "summary": "PATCH /notifications/{id}/read",
@@ -4057,7 +4496,11 @@
     "/api/v1/reviews/product/{productId}": {
       "get": {
         "tags": [
+          "Role: public",
           "reviews"
+        ],
+        "x-roles": [
+          "public"
         ],
         "operationId": "getReviewsProductProductId",
         "summary": "GET /reviews/product/{productId}",
@@ -4094,7 +4537,17 @@
     "/api/v1/reviews": {
       "post": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "Role: agent",
+          "Role: user",
           "reviews"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin",
+          "agent",
+          "user"
         ],
         "operationId": "postReviews",
         "summary": "POST /reviews",
@@ -4185,7 +4638,17 @@
     "/api/v1/reviews/{id}": {
       "patch": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "Role: agent",
+          "Role: user",
           "reviews"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin",
+          "agent",
+          "user"
         ],
         "operationId": "patchReviewsId",
         "summary": "PATCH /reviews/{id}",
@@ -4260,7 +4723,13 @@
       },
       "delete": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
           "reviews"
+        ],
+        "x-roles": [
+          "super-admin",
+          "admin"
         ],
         "operationId": "deleteReviewsId",
         "summary": "DELETE /reviews/{id}",
@@ -4308,6 +4777,12 @@
     "/api/v1/admin/dashboard": {
       "get": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "admin"
+        ],
+        "x-roles": [
+          "super-admin",
           "admin"
         ],
         "operationId": "getAdminDashboard",
@@ -4367,6 +4842,12 @@
     "/api/v1/admin/users": {
       "get": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "admin"
+        ],
+        "x-roles": [
+          "super-admin",
           "admin"
         ],
         "operationId": "getAdminUsers",
@@ -4457,6 +4938,12 @@
     "/api/v1/admin/orders": {
       "get": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "admin"
+        ],
+        "x-roles": [
+          "super-admin",
           "admin"
         ],
         "operationId": "getAdminOrders",
@@ -4571,6 +5058,12 @@
     "/api/v1/admin/products/pending": {
       "get": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "admin"
+        ],
+        "x-roles": [
+          "super-admin",
           "admin"
         ],
         "operationId": "getAdminProductsPending",
@@ -4630,6 +5123,12 @@
     "/api/v1/admin/products": {
       "get": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "admin"
+        ],
+        "x-roles": [
+          "super-admin",
           "admin"
         ],
         "operationId": "getAdminProducts",
@@ -4689,6 +5188,12 @@
     "/api/v1/admin/products/{productId}": {
       "delete": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "admin"
+        ],
+        "x-roles": [
+          "super-admin",
           "admin"
         ],
         "operationId": "deleteAdminProductsProductId",
@@ -4737,6 +5242,12 @@
     "/api/v1/admin/agents/{agentId}/stats": {
       "get": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "admin"
+        ],
+        "x-roles": [
+          "super-admin",
           "admin"
         ],
         "operationId": "getAdminAgentsAgentIdStats",
@@ -4785,7 +5296,11 @@
     "/api/v1/admin/agents/{agentId}/commission": {
       "patch": {
         "tags": [
+          "Role: super-admin",
           "admin"
+        ],
+        "x-roles": [
+          "super-admin"
         ],
         "operationId": "patchAdminAgentsAgentIdCommission",
         "summary": "PATCH /admin/agents/{agentId}/commission",
@@ -4854,6 +5369,12 @@
     "/api/v1/admin/analytics/revenue": {
       "get": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "admin"
+        ],
+        "x-roles": [
+          "super-admin",
           "admin"
         ],
         "operationId": "getAdminAnalyticsRevenue",
@@ -4913,6 +5434,12 @@
     "/api/v1/admin/users/{userId}/status": {
       "patch": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "admin"
+        ],
+        "x-roles": [
+          "super-admin",
           "admin"
         ],
         "operationId": "patchAdminUsersUserIdStatus",
@@ -4980,6 +5507,12 @@
     "/api/v1/admin/deliveries": {
       "get": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "admin"
+        ],
+        "x-roles": [
+          "super-admin",
           "admin"
         ],
         "operationId": "getAdminDeliveries",
@@ -5039,6 +5572,12 @@
     "/api/v1/admin/returns": {
       "get": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "admin"
+        ],
+        "x-roles": [
+          "super-admin",
           "admin"
         ],
         "operationId": "getAdminReturns",
@@ -5098,6 +5637,12 @@
     "/api/v1/admin/analytics/agents": {
       "get": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "admin"
+        ],
+        "x-roles": [
+          "super-admin",
           "admin"
         ],
         "operationId": "getAdminAnalyticsAgents",
@@ -5157,6 +5702,12 @@
     "/api/v1/admin/analytics/inventory": {
       "get": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "admin"
+        ],
+        "x-roles": [
+          "super-admin",
           "admin"
         ],
         "operationId": "getAdminAnalyticsInventory",
@@ -5216,6 +5767,12 @@
     "/api/v1/admin/analytics/users": {
       "get": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "admin"
+        ],
+        "x-roles": [
+          "super-admin",
           "admin"
         ],
         "operationId": "getAdminAnalyticsUsers",
@@ -5275,7 +5832,11 @@
     "/api/v1/admin/settlements": {
       "get": {
         "tags": [
+          "Role: super-admin",
           "admin"
+        ],
+        "x-roles": [
+          "super-admin"
         ],
         "operationId": "getAdminSettlements",
         "summary": "GET /admin/settlements",
@@ -5334,7 +5895,11 @@
     "/api/v1/admin/settlements/{settlementId}/status": {
       "patch": {
         "tags": [
+          "Role: super-admin",
           "admin"
+        ],
+        "x-roles": [
+          "super-admin"
         ],
         "operationId": "patchAdminSettlementsSettlementIdStatus",
         "summary": "PATCH /admin/settlements/{settlementId}/status",
@@ -5407,7 +5972,11 @@
     "/api/v1/admin/settlement-adjustments": {
       "get": {
         "tags": [
+          "Role: super-admin",
           "admin"
+        ],
+        "x-roles": [
+          "super-admin"
         ],
         "operationId": "getAdminSettlementadjustments",
         "summary": "GET /admin/settlement-adjustments",
@@ -5466,7 +6035,11 @@
     "/api/v1/admin/settlement-adjustments/{adjustmentId}/status": {
       "patch": {
         "tags": [
+          "Role: super-admin",
           "admin"
+        ],
+        "x-roles": [
+          "super-admin"
         ],
         "operationId": "patchAdminSettlementadjustmentsAdjustmentIdStatus",
         "summary": "PATCH /admin/settlement-adjustments/{adjustmentId}/status",
@@ -5538,6 +6111,12 @@
     "/api/v1/admin/orders/{orderId}/status": {
       "patch": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "admin"
+        ],
+        "x-roles": [
+          "super-admin",
           "admin"
         ],
         "operationId": "patchAdminOrdersOrderIdStatus",
@@ -5616,6 +6195,12 @@
     "/api/v1/admin/payments/{paymentId}/refund": {
       "post": {
         "tags": [
+          "Role: super-admin",
+          "Role: admin",
+          "admin"
+        ],
+        "x-roles": [
+          "super-admin",
           "admin"
         ],
         "operationId": "postAdminPaymentsPaymentIdRefund",
@@ -5696,7 +6281,11 @@
     "/api/v1/admin/audit-logs": {
       "get": {
         "tags": [
+          "Role: super-admin",
           "admin"
+        ],
+        "x-roles": [
+          "super-admin"
         ],
         "operationId": "getAdminAuditlogs",
         "summary": "GET /admin/audit-logs",

@@ -9,6 +9,8 @@ import { createRedisClient } from '@ecommerce/redis-client';
 import { authenticate } from './middleware/authenticate';
 import { RedisRateLimitStore } from './middleware/redis-rate-limit-store';
 import { checkServiceReadiness } from './readiness';
+import path from 'path';
+import { readFileSync } from 'fs';
 
 const logger = createLogger({ service: 'api-gateway', level: config.logLevel });
 const observability = createHttpObservability('api-gateway', logger);
@@ -16,6 +18,44 @@ const redis = createRedisClient(config.redis, logger);
 
 const app = express();
 app.set('trust proxy', config.trustProxyHops);
+
+// Unified API reference (Swagger UI) for every service, grouped by user role.
+// Served offline from the bundled swagger-ui-dist assets and mounted before
+// helmet so its CSP does not block the UI. The spec carries per-endpoint
+// `x-roles` and `Role: *` tags derived from each route's RBAC guards.
+const swaggerAssets = (require('swagger-ui-dist') as { getAbsoluteFSPath(): string }).getAbsoluteFSPath();
+const openapiSpecPath = process.env.OPENAPI_SPEC_PATH ?? path.resolve(__dirname, '../../../docs/openapi.json');
+let openapiSpec: unknown = { openapi: '3.1.0', info: { title: 'E-commerce Backend API', version: '1.0.0' }, paths: {} };
+try {
+  openapiSpec = JSON.parse(readFileSync(openapiSpecPath, 'utf8'));
+} catch (err) {
+  logger.warn({ err: (err as Error).message, openapiSpecPath }, 'OpenAPI spec not found; /docs will show an empty spec');
+}
+const DOCS_HTML = `<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>API Reference — by role</title>
+<link rel="stylesheet" href="/docs/assets/swagger-ui.css">
+<style>body{margin:0}.topbar{display:none}#role-hint{font:14px/1.5 system-ui,sans-serif;padding:10px 20px;background:#1a1e26;color:#e8eaef}#role-hint b{color:#e0965a}</style></head>
+<body>
+<div id="role-hint">Grouped by user role — filter box below accepts a tag, e.g. <b>Role: agent</b>. Roles come from each route's RBAC guards.</div>
+<div id="swagger-ui"></div>
+<script src="/docs/assets/swagger-ui-bundle.js"></script>
+<script src="/docs/assets/swagger-ui-standalone-preset.js"></script>
+<script>
+window.ui = SwaggerUIBundle({
+  url: '/docs/openapi.json',
+  dom_id: '#swagger-ui',
+  presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+  layout: 'BaseLayout',
+  filter: true,
+  docExpansion: 'none',
+  operationsSorter: 'alpha',
+  defaultModelsExpandDepth: -1,
+});
+</script></body></html>`;
+app.use('/docs/assets', express.static(swaggerAssets));
+app.get('/docs/openapi.json', (_req, res) => res.json(openapiSpec));
+app.get('/docs', (_req, res) => res.type('html').send(DOCS_HTML));
 
 app.use(helmet());
 app.use(cors({ origin: process.env.ALLOWED_ORIGINS?.split(',') ?? '*' }));
