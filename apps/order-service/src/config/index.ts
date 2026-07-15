@@ -19,4 +19,12 @@ export const config = {
     clientId: process.env.KAFKA_CLIENT_ID ?? 'order-service',
     groupId: process.env.KAFKA_GROUP_ID ?? 'order-service-group',
   },
+  shipping: {
+    remotePostalPrefixes: (process.env.REMOTE_POSTAL_PREFIXES ?? '').split(',').map((value) => value.trim()).filter(Boolean),
+  },
+  services: {
+    productUrl: process.env.PRODUCT_SERVICE_URL ?? 'http://localhost:3002',
+    authUrl: process.env.AUTH_SERVICE_URL ?? 'http://localhost:3001',
+  },
+  internalServiceToken: process.env.INTERNAL_SERVICE_TOKEN ?? 'dev-internal-token',
 } as const;

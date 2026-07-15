@@ -17,7 +17,16 @@ const OrderItemSchema = z.object({
 export const CreateOrderSchema = z.object({
   items: z.array(OrderItemSchema).min(1).max(50),
   shippingAddress: ShippingAddressSchema,
-  couponCode: z.string().optional(),
+  couponCode: z.string().trim().min(1).max(50).regex(/^[A-Za-z0-9_-]+$/).transform((value) => value.toUpperCase()).optional(),
+  idempotencyKey: z.string().min(1).max(200),
+}).superRefine((value, ctx) => {
+  const ids = new Set<string>();
+  value.items.forEach((item, index) => {
+    if (ids.has(item.productId)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['items', index, 'productId'], message: 'Duplicate products are not allowed' });
+    }
+    ids.add(item.productId);
+  });
 });
 
 export const CancelOrderSchema = z.object({

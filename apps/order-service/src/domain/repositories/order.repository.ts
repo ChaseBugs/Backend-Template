@@ -9,13 +9,13 @@ export class OrderRepository {
 
     const orderResult = await db.query(
       `INSERT INTO orders
-         (id, saga_id, user_id, status, shipping_address, total_amount, shipping_fee, discount_amount, final_amount)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         (id, saga_id, user_id, status, shipping_address, total_amount, shipping_fee, discount_amount, final_amount, idempotency_key, coupon_code)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
       [
         order.id, order.sagaId, order.userId, order.status,
         JSON.stringify(order.shippingAddress),
-        order.totalAmount, order.shippingFee, order.discountAmount, order.finalAmount,
+        order.totalAmount, order.shippingFee, order.discountAmount, order.finalAmount, order.idempotencyKey, order.couponCode ?? null,
       ],
     );
 
@@ -23,11 +23,11 @@ export class OrderRepository {
     for (const item of items) {
       const itemResult = await db.query(
         `INSERT INTO order_items
-           (id, order_id, product_id, agent_id, product_name, product_image, quantity, unit_price, subtotal)
-         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8)
+           (id, order_id, product_id, agent_id, product_name, product_image, quantity, unit_price, subtotal, discount_amount, shipping_fee)
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
          RETURNING *`,
         [order.id, item.productId, item.agentId, item.productName, item.productImage ?? null,
-         item.quantity, item.unitPrice, item.subtotal],
+         item.quantity, item.unitPrice, item.subtotal, item.discountAmount, item.shippingFee],
       );
       createdItems.push(this.mapItem(itemResult.rows[0]));
     }
@@ -103,6 +103,89 @@ export class OrderRepository {
     return { orders, total: parseInt(count.rows[0].count, 10) };
   }
 
+  async findByIdempotencyKey(userId: string, idempotencyKey: string, client?: PoolClient): Promise<Order | null> {
+    const db = client ?? pool;
+    const result = await db.query(`SELECT id FROM orders WHERE user_id = $1 AND idempotency_key = $2`, [userId, idempotencyKey]);
+    return result.rows[0] ? this.findById(result.rows[0].id, client) : null;
+  }
+
+  async findCouponForUpdate(code: string, client: PoolClient): Promise<{
+    id: string;
+    code: string;
+    discountType: 'FIXED' | 'PERCENT';
+    discountValue: number;
+    minOrderAmount: number;
+    maxDiscountAmount?: number;
+    startsAt: Date;
+    expiresAt?: Date;
+    usageLimit?: number;
+    usedCount: number;
+    perUserLimit: number;
+    isActive: boolean;
+  } | null> {
+    const result = await client.query(`SELECT * FROM coupons WHERE code = $1 FOR UPDATE`, [code]);
+    const row = result.rows[0];
+    if (!row) return null;
+    return {
+      id: row.id,
+      code: row.code,
+      discountType: row.discount_type,
+      discountValue: Number(row.discount_value),
+      minOrderAmount: Number(row.min_order_amount),
+      maxDiscountAmount: row.max_discount_amount == null ? undefined : Number(row.max_discount_amount),
+      startsAt: new Date(row.starts_at),
+      expiresAt: row.expires_at == null ? undefined : new Date(row.expires_at),
+      usageLimit: row.usage_limit == null ? undefined : Number(row.usage_limit),
+      usedCount: Number(row.used_count),
+      perUserLimit: Number(row.per_user_limit),
+      isActive: Boolean(row.is_active),
+    };
+  }
+
+  async countCouponRedemptions(couponId: string, userId: string, client: PoolClient): Promise<number> {
+    const result = await client.query(
+      `SELECT COUNT(*) FROM coupon_redemptions WHERE coupon_id = $1 AND user_id = $2`,
+      [couponId, userId],
+    );
+    return Number(result.rows[0].count);
+  }
+
+  async recordCouponRedemption(couponId: string, orderId: string, userId: string, discountAmount: number, client: PoolClient): Promise<void> {
+    await client.query(
+      `INSERT INTO coupon_redemptions (coupon_id, order_id, user_id, discount_amount) VALUES ($1, $2, $3, $4)`,
+      [couponId, orderId, userId, discountAmount],
+    );
+    await client.query(`UPDATE coupons SET used_count = used_count + 1, updated_at = NOW() WHERE id = $1`, [couponId]);
+  }
+
+  async isReviewEligible(orderId: string, userId: string, productId: string, client?: PoolClient): Promise<boolean> {
+    const db = client ?? pool;
+    const result = await db.query(
+      `SELECT 1
+       FROM orders o
+       JOIN order_items oi ON oi.order_id = o.id
+       WHERE o.id = $1 AND o.user_id = $2 AND oi.product_id = $3
+         AND o.status = $4
+       LIMIT 1`,
+      [orderId, userId, productId, OrderStatus.COMPLETED],
+    );
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async getReturnContext(orderId: string, userId: string, agentId: string, client?: PoolClient): Promise<{ refundAmount: number } | null> {
+    const db = client ?? pool;
+    const result = await db.query(
+      `SELECT COALESCE(SUM(oi.subtotal - oi.discount_amount + oi.shipping_fee), 0) AS refund_amount
+       FROM orders o
+       JOIN order_items oi ON oi.order_id = o.id
+       WHERE o.id = $1 AND o.user_id = $2 AND oi.agent_id = $3
+       GROUP BY o.id`,
+      [orderId, userId, agentId],
+    );
+    if (!result.rows[0]) return null;
+    return { refundAmount: parseFloat(result.rows[0].refund_amount) };
+  }
+
   // SAGA state management
   async createSaga(saga: SagaState, client?: PoolClient): Promise<void> {
     const db = client ?? pool;
@@ -152,6 +235,8 @@ export class OrderRepository {
       finalAmount: parseFloat(row.final_amount as string),
       paymentId: row.payment_id as string | undefined,
       cancelReason: row.cancel_reason as string | undefined,
+      couponCode: row.coupon_code as string | undefined,
+      idempotencyKey: row.idempotency_key as string,
       createdAt: new Date(row.created_at as string),
       updatedAt: new Date(row.updated_at as string),
     };
@@ -168,6 +253,8 @@ export class OrderRepository {
       quantity: parseInt(row.quantity as string, 10),
       unitPrice: parseFloat(row.unit_price as string),
       subtotal: parseFloat(row.subtotal as string),
+      discountAmount: parseFloat(row.discount_amount as string),
+      shippingFee: parseFloat(row.shipping_fee as string),
     };
   }
 }

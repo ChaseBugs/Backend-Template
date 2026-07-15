@@ -16,7 +16,14 @@ export const config = {
     groupId: process.env.KAFKA_GROUP_ID ?? 'payment-service-group',
   },
   pg: {
+    mode: (process.env.PAYMENT_GATEWAY_MODE ?? (process.env.NODE_ENV === 'production' ? 'http' : 'mock')) as 'mock' | 'http',
     url: process.env.PAYMENT_GATEWAY_URL ?? 'http://localhost:9999/pay',
+    refundUrl: process.env.PAYMENT_GATEWAY_REFUND_URL ?? 'http://localhost:9999/refund',
     apiKey: process.env.PAYMENT_GATEWAY_API_KEY ?? 'test-key',
   },
+  services: {
+    orderUrl: process.env.ORDER_SERVICE_URL ?? 'http://localhost:3003',
+    authUrl: process.env.AUTH_SERVICE_URL ?? 'http://localhost:3001',
+  },
+  internalServiceToken: process.env.INTERNAL_SERVICE_TOKEN ?? 'dev-internal-token',
 } as const;
