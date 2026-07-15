@@ -6,6 +6,7 @@ import { KafkaTopic } from '@ecommerce/shared';
 import { ConflictError, NotFoundError, ForbiddenError } from '@ecommerce/errors';
 import { CatalogSearchQueryDto, CreateProductDto, UpdateProductDto, RejectProductDto, ProductListQueryDto } from '../dtos/product.dto';
 import { ProductReadModel, ProductStatus } from '../../domain/entities/product.entity';
+import { computeBuyBox } from '../buy-box';
 
 export class ProductUseCases {
   constructor(
@@ -20,6 +21,17 @@ export class ProductUseCases {
 
   async listCatalogOffers(catalogVariantId: string) {
     return this.writeRepo.listActiveOffers(catalogVariantId);
+  }
+
+  async getBuyBox(catalogVariantId: string, agentId: string) {
+    const rows = await this.writeRepo.listActiveOffers(catalogVariantId);
+    const offers = rows.map((row: any) => ({
+      productId: row.id as string,
+      agentId: row.agent_id as string,
+      price: Number(row.price),
+      condition: row.condition as string,
+    }));
+    return computeBuyBox(catalogVariantId, offers, agentId);
   }
 
   async create(dto: CreateProductDto, agentId: string, idempotencyKey: string): Promise<{ id: string }> {

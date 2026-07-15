@@ -1852,6 +1852,54 @@
         }
       }
     },
+    "/api/v1/products/catalog/variants/{variantId}/buybox": {
+      "get": {
+        "tags": [
+          "products"
+        ],
+        "operationId": "getProductsCatalogVariantsVariantIdBuybox",
+        "summary": "GET /products/catalog/variants/{variantId}/buybox",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "variantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/ServerError"
+          }
+        }
+      }
+    },
     "/api/v1/products/{id}/approve": {
       "patch": {
         "tags": [

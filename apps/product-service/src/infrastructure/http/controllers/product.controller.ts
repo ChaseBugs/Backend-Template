@@ -24,6 +24,15 @@ export class ProductController {
     } catch (err) { next(err); }
   };
 
+  getCatalogBuyBox = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const agentId = req.user!.agentId;
+      if (!agentId) throw new ForbiddenError('Agent ID required');
+      const buyBox = await this.useCases.getBuyBox(p(req.params.variantId), agentId);
+      res.json(successResponse(buyBox));
+    } catch (err) { next(err); }
+  };
+
   create = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const agentId = req.user!.agentId;

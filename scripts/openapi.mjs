@@ -17,7 +17,7 @@ const routes = {
   users: { secured: ['GET /users', 'GET /users/{userId}', 'PATCH /users/{userId}/role', 'PATCH /users/{userId}/deactivate', 'PATCH /users/{userId}/activate'] },
   products: {
     public: ['GET /products', 'GET /products/{id}', 'GET /products/catalog/search', 'GET /products/catalog/variants/{variantId}/offers'],
-    secured: ['GET /products/pending', 'GET /products/my', 'POST /products', 'PATCH /products/{id}', 'DELETE /products/{id}', 'PATCH /products/{id}/approve', 'PATCH /products/{id}/reject'],
+    secured: ['GET /products/pending', 'GET /products/my', 'GET /products/catalog/variants/{variantId}/buybox', 'POST /products', 'PATCH /products/{id}', 'DELETE /products/{id}', 'PATCH /products/{id}/approve', 'PATCH /products/{id}/reject'],
   },
   search: { public: ['GET /search', 'GET /search/popular', 'GET /search/autocomplete'] },
   cart: { secured: ['GET /cart', 'POST /cart/items', 'PATCH /cart/items/{productId}', 'DELETE /cart/items/{productId}', 'DELETE /cart'] },

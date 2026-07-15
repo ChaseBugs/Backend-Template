@@ -26,6 +26,9 @@ export function createProductRouter(controller: ProductController): Router {
   router.get('/my', requireAuth, requireRole(UserRole.AGENT), controller.listMyProducts);
   router.get('/:id', controller.getById);
 
+  // Agent: Buy Box position for one of the seller's catalog variants
+  router.get('/catalog/variants/:variantId/buybox', requireAuth, requireApprovedAgent, controller.getCatalogBuyBox);
+
   // Agent: create / update / delete own products
   router.post('/', requireAuth, requireApprovedAgent, validate(CreateProductSchema), controller.create);
   router.patch('/:id', requireAuth, requireApprovedAgent, validate(UpdateProductSchema), controller.update);

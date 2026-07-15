@@ -126,6 +126,34 @@ GET /api/v1/deliveries/my/summary
 
 ---
 
+## 5. Buy Box 위치 — 「경쟁」 타일
+
+```
+GET /api/v1/products/catalog/variants/{variantId}/buybox
+```
+권한: `requireApprovedAgent`. 같은 카탈로그 변형(variant)을 파는 오퍼들 중 내 위치를 계산.
+오퍼는 가격 오름차순(동가일 때 먼저 등록한 순)으로 정렬되며 1위가 Buy Box 승자.
+
+**응답 `data`:**
+```json
+{
+  "variantId": "…uuid…",
+  "offerCount": 3,
+  "lowestPrice": 8000,
+  "winnerAgentId": "…uuid-agent-a…",
+  "myOffer": { "productId": "…uuid…", "price": 9000, "condition": "NEW", "rank": 3 },
+  "iAmWinning": false,
+  "priceToWin": 1001
+}
+```
+- `lowestPrice` / `winnerAgentId` — 현재 Buy Box 가격과 승자
+- `myOffer` — 내 오퍼(없으면 `null`), `rank`는 1부터
+- `iAmWinning` — 내가 1위인지
+- `priceToWin` — Buy Box를 가져오려면 낮춰야 할 금액(이미 1위면 `0`, 내 오퍼 없으면 `null`).
+  현재 최저가를 1원 밑돌게 하는 값 = `내가격 − 최저가 + 1`
+
+---
+
 ## 참고
 - 전체 계약은 [openapi.json](./openapi.json) 참조 (`GET /orders/agent/summary` 외 3건 포함).
 - 상세 목록(페이지네이션)은 별도 엔드포인트: `GET /orders`(에이전트), `GET /payments/settlements`,
