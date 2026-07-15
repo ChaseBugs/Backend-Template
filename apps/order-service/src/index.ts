@@ -12,6 +12,8 @@ import { CreateOrderUseCase } from './application/use-cases/create-order.use-cas
 import { isRemotePostalCode, ShippingPolicy } from './application/use-cases/create-order.use-case';
 import { CancelOrderUseCase } from './application/use-cases/cancel-order.use-case';
 import { AdminUpdateOrderStatusUseCase } from './application/use-cases/admin-update-order-status.use-case';
+import { GetAgentSalesSummaryUseCase } from './application/use-cases/agent-sales-summary.use-case';
+import { requirePermission, Permission } from '@ecommerce/rbac';
 import { OrderSagaHandler } from './application/saga/order-saga.handler';
 import { CreateOrderSchema } from './application/dtos/order.dto';
 
@@ -66,6 +68,7 @@ async function bootstrap(): Promise<void> {
   const createOrderUseCase = new CreateOrderUseCase(orderRepo, kafkaProducer);
   const cancelOrderUseCase = new CancelOrderUseCase(orderRepo, kafkaProducer);
   const adminUpdateOrderStatus = new AdminUpdateOrderStatusUseCase(orderRepo, kafkaProducer);
+  const agentSalesSummary = new GetAgentSalesSummaryUseCase(orderRepo);
   const sagaHandler = new OrderSagaHandler(orderRepo, kafkaProducer, logger);
 
   const consumer = new KafkaConsumer(
@@ -224,6 +227,23 @@ async function bootstrap(): Promise<void> {
       }
 
       res.json(successResponse(buildPaginatedResult(result.orders, result.total, page, limit)));
+    } catch (err) { next(err); }
+  });
+
+  // Seller dashboard: revenue summary scoped to the calling agent.
+  app.get('/api/orders/agent/summary', extractUser, requirePermission(Permission.READ_AGENT_ORDERS), async (req: any, res: any, next: any) => {
+    try {
+      const parseDate = (v: unknown): Date | undefined => {
+        if (typeof v !== 'string' || v === '') return undefined;
+        const d = new Date(v);
+        if (Number.isNaN(d.getTime())) throw new BadRequestError('Invalid date in from/to');
+        return d;
+      };
+      const summary = await agentSalesSummary.execute(req.user.agentId, {
+        from: parseDate(req.query.from),
+        to: parseDate(req.query.to),
+      });
+      res.json(successResponse(summary));
     } catch (err) { next(err); }
   });
 

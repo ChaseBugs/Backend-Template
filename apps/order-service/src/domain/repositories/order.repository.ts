@@ -103,6 +103,33 @@ export class OrderRepository {
     return { orders, total: parseInt(count.rows[0].count, 10) };
   }
 
+  async getAgentSalesSummary(agentId: string, from: Date, to: Date, client?: PoolClient): Promise<{
+    statusCounts: Array<{ status: string; orderCount: number; unitsSold: number; grossSales: number }>;
+  }> {
+    const db = client ?? pool;
+    const result = await db.query(
+      `SELECT o.status,
+              COUNT(DISTINCT o.id)::int          AS order_count,
+              COALESCE(SUM(oi.quantity), 0)::int AS units_sold,
+              COALESCE(SUM(oi.subtotal), 0)::int AS gross_sales
+       FROM orders o
+       JOIN order_items oi ON oi.order_id = o.id
+       WHERE oi.agent_id = $1
+         AND o.created_at >= $2 AND o.created_at <= $3
+         AND o.status IN ('PAID','PROCESSING','PARTIALLY_SHIPPED','SHIPPED','COMPLETED')
+       GROUP BY o.status`,
+      [agentId, from, to],
+    );
+    return {
+      statusCounts: result.rows.map((row) => ({
+        status: row.status as string,
+        orderCount: Number(row.order_count),
+        unitsSold: Number(row.units_sold),
+        grossSales: Number(row.gross_sales),
+      })),
+    };
+  }
+
   async findByIdempotencyKey(userId: string, idempotencyKey: string, client?: PoolClient): Promise<Order | null> {
     const db = client ?? pool;
     const result = await db.query(`SELECT id FROM orders WHERE user_id = $1 AND idempotency_key = $2`, [userId, idempotencyKey]);
