@@ -2,9 +2,15 @@ export const config = {
   nodeEnv: process.env.NODE_ENV ?? 'development',
   port: parseInt(process.env.PORT ?? '3000', 10),
   logLevel: process.env.LOG_LEVEL ?? 'info',
+  trustProxyHops: parseInt(process.env.TRUST_PROXY_HOPS ?? '1', 10),
 
   jwt: {
     secret: process.env.JWT_SECRET ?? 'dev-secret-change-in-production',
+  },
+
+  redis: {
+    host: process.env.REDIS_HOST ?? 'localhost',
+    port: parseInt(process.env.REDIS_PORT ?? '6379', 10),
   },
 
   services: {
@@ -18,5 +24,6 @@ export const config = {
     admin: process.env.ADMIN_SERVICE_URL ?? 'http://localhost:3008',
     notification: process.env.NOTIFICATION_SERVICE_URL ?? 'http://localhost:3009',
     delivery: process.env.DELIVERY_SERVICE_URL ?? 'http://localhost:3010',
+    review: process.env.REVIEW_SERVICE_URL ?? 'http://localhost:3011',
   },
 } as const;

@@ -23,4 +23,5 @@ export const config = {
     brokers: (process.env.KAFKA_BROKERS ?? 'localhost:9092').split(','),
     clientId: process.env.KAFKA_CLIENT_ID ?? 'auth-service',
   },
+  internalServiceToken: process.env.INTERNAL_SERVICE_TOKEN ?? 'dev-internal-token',
 } as const;

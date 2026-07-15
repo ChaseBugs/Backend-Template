@@ -59,6 +59,10 @@ export const SetCommissionRateSchema = z.object({
   commissionRate: z.number().min(0).max(100),
 });
 
+export const ChangeUserRoleSchema = z.object({
+  role: z.enum([UserRole.ADMIN, UserRole.USER]),
+});
+
 export type RegisterUserDto = z.infer<typeof RegisterUserSchema>;
 export type LoginDto = z.infer<typeof LoginSchema>;
 export type RefreshTokenDto = z.infer<typeof RefreshTokenSchema>;
@@ -67,3 +71,4 @@ export type ApproveAgentDto = z.infer<typeof ApproveAgentSchema>;
 export type RejectAgentDto = z.infer<typeof RejectAgentSchema>;
 export type UpdateShippingPolicyDto = z.infer<typeof UpdateShippingPolicySchema>;
 export type SetCommissionRateDto = z.infer<typeof SetCommissionRateSchema>;
+export type ChangeUserRoleDto = z.infer<typeof ChangeUserRoleSchema>;

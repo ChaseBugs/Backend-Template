@@ -5,6 +5,7 @@
   "main": "./dist/index.js",
   "scripts": {
     "build": "tsc",
+    "test": "pnpm build && node --test test/*.test.js",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "start": "node dist/index.js",
     "clean": "rm -rf dist"
@@ -14,6 +15,7 @@
     "@ecommerce/shared": "workspace:*",
     "@ecommerce/rbac": "workspace:*",
     "@ecommerce/logger": "workspace:*",
+    "@ecommerce/redis-client": "workspace:*",
     "express": "^5.1.0",
     "http-proxy-middleware": "^3.0.5",
     "jsonwebtoken": "^9.0.2",

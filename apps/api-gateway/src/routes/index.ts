@@ -1,14 +1,11 @@
 import { Router } from 'express';
 import { config } from '../config';
-import { authenticate, requireAuth } from '../middleware/authenticate';
+import { requireAuth } from '../middleware/authenticate';
 import { createServiceProxy } from '../proxy/create-proxy';
 import { Logger } from '@ecommerce/logger';
 
 export function createRoutes(logger: Logger): Router {
   const router = Router();
-
-  // All requests get auth parsed (optional auth)
-  router.use(authenticate);
 
   // Auth service — public + authenticated routes
   router.use('/auth', createServiceProxy(config.services.auth, { '^/auth': '/api/auth' }, logger));
@@ -39,6 +36,9 @@ export function createRoutes(logger: Logger): Router {
 
   // Notification service — requires auth
   router.use('/notifications', requireAuth, createServiceProxy(config.services.notification, { '^/notifications': '/api/notifications' }, logger));
+
+  // Review reads are public; write endpoints enforce verified identity downstream.
+  router.use('/reviews', createServiceProxy(config.services.review, { '^/reviews': '/api/reviews' }, logger));
 
   // Agents sub-routes (served by auth-service)
   router.use('/agents', createServiceProxy(config.services.auth, { '^/agents': '/api/agents' }, logger));

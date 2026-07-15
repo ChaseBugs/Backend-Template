@@ -5,17 +5,31 @@ import { Permission } from '@ecommerce/rbac';
 import { UserRepository } from '../../../domain/repositories/user.repository';
 import { successResponse, buildPagination, buildPaginatedResult, UserRole } from '@ecommerce/shared';
 import { NotFoundError, ForbiddenError } from '@ecommerce/errors';
+import { ChangeUserRoleSchema } from '../../../application/dtos/auth.dto';
+import { ChangeUserRoleUseCase } from '../../../application/use-cases/change-user-role.use-case';
+import { ManageUserStatusUseCase } from '../../../application/use-cases/manage-user-status.use-case';
+import { validate } from '../middleware/validate';
 
-// admin management is super-admin only (CLAUDE.md: 다른 admin 계정은 super-admin 전용)
-function assertCanManageTarget(requesterRole: UserRole, target: { role: UserRole }): void {
-  const targetIsPrivileged = target.role === UserRole.ADMIN || target.role === UserRole.SUPER_ADMIN;
-  if (targetIsPrivileged && requesterRole !== UserRole.SUPER_ADMIN) {
-    throw new ForbiddenError('Only super-admin can manage admin accounts');
-  }
-}
-
-export function createUserRouter(userRepo: UserRepository): Router {
+export function createUserRouter(userRepo: UserRepository, changeUserRole: ChangeUserRoleUseCase, manageUserStatus: ManageUserStatusUseCase): Router {
   const router = Router();
+
+  router.get(
+    '/:userId',
+    authenticate,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const userId = req.params.userId as string;
+        const isAdmin = req.user!.role === UserRole.ADMIN || req.user!.role === UserRole.SUPER_ADMIN;
+        if (!isAdmin && req.user!.id !== userId) throw new ForbiddenError('You can only view your own profile');
+        const user = await userRepo.findById(userId);
+        if (!user) throw new NotFoundError('User', userId);
+        const { passwordHash: _, ...safeUser } = user;
+        res.json(successResponse(safeUser));
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
 
   router.get(
     '/',
@@ -34,16 +48,28 @@ export function createUserRouter(userRepo: UserRepository): Router {
   );
 
   router.patch(
+    '/:userId/role',
+    authenticate,
+    requirePermission(Permission.CHANGE_USER_ROLE),
+    validate(ChangeUserRoleSchema),
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        await changeUserRole.execute(req.params.userId as string, req.body.role, req.user!.id);
+        res.json(successResponse({ message: 'User role updated' }));
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
+
+  router.patch(
     '/:userId/deactivate',
     authenticate,
     requirePermission(Permission.UPDATE_ANY_USER),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const userId = req.params.userId as string;
-        const user = await userRepo.findById(userId);
-        if (!user) throw new NotFoundError('User', userId);
-        assertCanManageTarget(req.user!.role, user);
-        await userRepo.updateActiveStatus(userId, false);
+        await manageUserStatus.execute(userId, false, req.user!.id, req.user!.role);
         res.json(successResponse({ message: 'User deactivated' }));
       } catch (err) {
         next(err);
@@ -58,10 +84,7 @@ export function createUserRouter(userRepo: UserRepository): Router {
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const userId = req.params.userId as string;
-        const user = await userRepo.findById(userId);
-        if (!user) throw new NotFoundError('User', userId);
-        assertCanManageTarget(req.user!.role, user);
-        await userRepo.updateActiveStatus(userId, true);
+        await manageUserStatus.execute(userId, true, req.user!.id, req.user!.role);
         res.json(successResponse({ message: 'User activated' }));
       } catch (err) {
         next(err);

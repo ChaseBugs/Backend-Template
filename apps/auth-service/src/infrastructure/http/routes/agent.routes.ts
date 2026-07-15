@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { AgentController } from '../controllers/agent.controller';
 import { validate } from '../middleware/validate';
 import { authenticate } from '../middleware/authenticate';
-import { requirePermission, requireRole } from '@ecommerce/rbac';
+import { requireApprovedAgent, requirePermission, requireRole } from '@ecommerce/rbac';
 import { Permission } from '@ecommerce/rbac';
 import { UserRole } from '@ecommerce/shared';
 import {
@@ -52,14 +52,14 @@ export function createAgentRouter(controller: AgentController): Router {
   router.get(
     '/shipping-policy',
     authenticate,
-    requireRole(UserRole.AGENT),
+    requireApprovedAgent,
     controller.getShippingPolicy,
   );
 
   router.put(
     '/shipping-policy',
     authenticate,
-    requireRole(UserRole.AGENT),
+    requireApprovedAgent,
     validate(UpdateShippingPolicySchema),
     controller.updateShippingPolicy,
   );

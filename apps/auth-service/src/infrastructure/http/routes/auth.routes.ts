@@ -11,6 +11,7 @@ export function createAuthRouter(controller: AuthController): Router {
   router.post('/register', validate(RegisterUserSchema), controller.register);
   router.post('/login', validate(LoginSchema), controller.login);
   router.post('/refresh', validate(RefreshTokenSchema), controller.refresh);
+  router.post('/logout', authenticate, requireAuth, validate(RefreshTokenSchema), controller.logout);
   router.get('/me', authenticate, requireAuth, controller.me);
 
   // super-admin only — the sole way to create an admin account (CLAUDE.md role rule)
