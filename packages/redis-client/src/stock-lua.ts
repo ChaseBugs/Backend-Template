@@ -29,31 +29,43 @@ return redis.call('decrby', KEYS[1], amount)
 export class StockManager {
   constructor(private readonly redis: RedisClient) {}
 
+  // Hash tag {productId} pins the stock value and its reservation counter to the
+  // same Redis Cluster slot, so the multi-key RESERVE script never hits CROSSSLOT.
+  private stockKey(productId: string): string {
+    return `stock:{${productId}}`;
+  }
+
+  private reservedKey(productId: string): string {
+    return `stock:reserved:{${productId}}`;
+  }
+
   async deductStock(productId: string, quantity: number): Promise<number> {
-    const key = `stock:${productId}`;
-    const result = await (this.redis as any).eval(DEDUCT_STOCK_SCRIPT, 1, key, quantity);
+    const result = await (this.redis as any).eval(DEDUCT_STOCK_SCRIPT, 1, this.stockKey(productId), quantity);
     return result as number;
   }
 
   async reserveStock(productId: string, quantity: number): Promise<number> {
-    const stockKey = `stock:${productId}`;
-    const reservedKey = `stock:reserved:${productId}`;
-    const result = await (this.redis as any).eval(RESERVE_STOCK_SCRIPT, 2, stockKey, reservedKey, quantity);
+    const result = await (this.redis as any).eval(
+      RESERVE_STOCK_SCRIPT,
+      2,
+      this.stockKey(productId),
+      this.reservedKey(productId),
+      quantity,
+    );
     return result as number;
   }
 
   async releaseReservation(productId: string, quantity: number): Promise<boolean> {
-    const reservedKey = `stock:reserved:${productId}`;
-    const result = await (this.redis as any).eval(RELEASE_RESERVATION_SCRIPT, 1, reservedKey, quantity);
+    const result = await (this.redis as any).eval(RELEASE_RESERVATION_SCRIPT, 1, this.reservedKey(productId), quantity);
     return result >= 0;
   }
 
   async setStock(productId: string, quantity: number): Promise<void> {
-    await (this.redis as any).set(`stock:${productId}`, quantity);
+    await (this.redis as any).set(this.stockKey(productId), quantity);
   }
 
   async getStock(productId: string): Promise<number | null> {
-    const val = await (this.redis as any).get(`stock:${productId}`);
+    const val = await (this.redis as any).get(this.stockKey(productId));
     return val !== null ? parseInt(val, 10) : null;
   }
 }
