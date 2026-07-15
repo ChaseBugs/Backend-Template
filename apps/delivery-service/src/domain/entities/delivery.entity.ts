@@ -3,6 +3,8 @@ import { DeliveryGroupStatus } from '@ecommerce/shared';
 export interface DeliveryGroup {
   id: string;
   orderId: string;     // ref: order.orders.id
+  userId: string;      // buyer who owns the order
+  paymentId: string;   // payment to refund for returns
   agentId: string;     // ref: auth.agent_profiles.id
   status: DeliveryGroupStatus;
   shippingFee: number;
