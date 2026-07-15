@@ -27,4 +27,6 @@ export const config = {
     productTtl: 60 * 60, // 1 hour
     listTtl: 5 * 60,     // 5 min
   },
+
+  internalServiceToken: process.env.INTERNAL_SERVICE_TOKEN ?? 'dev-internal-token',
 } as const;

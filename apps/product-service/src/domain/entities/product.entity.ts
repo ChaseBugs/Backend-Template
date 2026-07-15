@@ -8,7 +8,10 @@ export enum ProductStatus {
 
 export interface Product {
   id: string;
+  catalogVariantId: string;
   agentId: string;         // ref: auth.agent_profiles.id
+  sku: string;
+  condition: 'NEW' | 'OPEN_BOX' | 'REFURBISHED' | 'USED_LIKE_NEW' | 'USED_GOOD' | 'USED_ACCEPTABLE';
   categoryId: string;
   name: string;
   description: string;
@@ -29,6 +32,9 @@ export interface Product {
 // MongoDB read model — denormalized for fast reads
 export interface ProductReadModel {
   _id: string;
+  catalogVariantId: string;
+  sku: string;
+  condition: string;
   agentId: string;
   agentName: string;
   categoryId: string;

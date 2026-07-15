@@ -15,4 +15,8 @@ export const config = {
     clientId: process.env.KAFKA_CLIENT_ID ?? 'inventory-service',
     groupId: process.env.KAFKA_GROUP_ID ?? 'inventory-service-group',
   },
+  services: {
+    productUrl: process.env.PRODUCT_SERVICE_URL ?? 'http://localhost:3002',
+  },
+  internalServiceToken: process.env.INTERNAL_SERVICE_TOKEN ?? 'dev-internal-token',
 } as const;
