@@ -1,0 +1,26 @@
+[Unit]
+Description=eCommerce backend PM2 process group
+After=network-online.target postgresql.service mongod.service redis-server.service kafka.service rabbitmq-server.service opensearch.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ecommerce
+Group=ecommerce
+WorkingDirectory=/opt/ecommerce/backend
+EnvironmentFile=-/etc/ecommerce/backend.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/pm2-runtime start ecosystem.config.js
+ExecReload=/usr/bin/pm2 reload ecosystem.config.js --update-env
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+LimitNOFILE=65535
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/ecommerce/backend/logs
+
+[Install]
+WantedBy=multi-user.target

@@ -5,6 +5,7 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc",
+    "test": "pnpm build && node --test test/*.test.js",
     "clean": "rm -rf dist"
   },
   "dependencies": {

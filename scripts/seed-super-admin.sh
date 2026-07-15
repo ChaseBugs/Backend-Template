@@ -5,6 +5,7 @@ set -euo pipefail
 
 PG_HOST="${PG_HOST:-localhost}"
 PG_PORT="${PG_PORT:-5432}"
+PG_USER="${PG_SUPERUSER:-postgres}"
 PGPASSWORD="${PGPASSWORD:-}"
 export PGPASSWORD
 
@@ -21,12 +22,12 @@ if ! command -v node &>/dev/null; then
   exit 1
 fi
 
-HASH=$(node -e "
-const bcrypt = require('bcrypt');
-bcrypt.hash('${SA_PASS}', 12).then(h => process.stdout.write(h));
+HASH=$(SA_PASS="$SA_PASS" node -e "
+const bcrypt = require('bcryptjs');
+bcrypt.hash(process.env.SA_PASS, 12).then(h => process.stdout.write(h));
 ")
 
-EXISTS=$(psql -h "$PG_HOST" -p "$PG_PORT" -U auth_svc -d ecommerce -t -c \
+EXISTS=$(psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d ecommerce -t -c \
   "SELECT COUNT(*) FROM auth.users WHERE role='super-admin';" 2>/dev/null | tr -d ' ')
 
 if [[ "$EXISTS" -gt 0 ]]; then
@@ -34,15 +35,16 @@ if [[ "$EXISTS" -gt 0 ]]; then
   exit 0
 fi
 
-psql -h "$PG_HOST" -p "$PG_PORT" -U auth_svc -d ecommerce <<SQL
+psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d ecommerce \
+  -v email="$SA_EMAIL" -v hash="$HASH" -v first_name="$SA_FIRST" -v last_name="$SA_LAST" -v phone="$SA_PHONE" <<'SQL'
 INSERT INTO auth.users (email, password_hash, role, first_name, last_name, phone)
 VALUES (
-  '${SA_EMAIL}',
-  '${HASH}',
+  :'email',
+  :'hash',
   'super-admin',
-  '${SA_FIRST}',
-  '${SA_LAST}',
-  '${SA_PHONE}'
+  :'first_name',
+  :'last_name',
+  :'phone'
 );
 SQL
 

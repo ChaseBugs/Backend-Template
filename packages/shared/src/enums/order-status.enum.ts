@@ -18,6 +18,7 @@ export enum DeliveryGroupStatus {
   FAILED = 'FAILED',
   RETURN_REQUESTED = 'RETURN_REQUESTED',
   RETURNED = 'RETURNED',
+  CANCELLED = 'CANCELLED',
 }
 
 export enum PaymentStatus {

@@ -6,15 +6,28 @@
   "scripts": {
     "build": "turbo build",
     "dev": "turbo dev",
-    "test": "turbo test",
+    "test": "node scripts/openapi.mjs --check && node scripts/verify-infrastructure.mjs && turbo test",
+    "infra:check": "node scripts/verify-infrastructure.mjs",
+    "test:integration": "pnpm --filter @ecommerce/integration-tests test:integration",
+    "test:e2e": "pnpm --filter @ecommerce/integration-tests test:e2e",
+    "load:public": "k6 run tests/load/public-read.js",
+    "load:flash-sale": "k6 run tests/load/flash-sale.js",
+    "test:rbac-integration": "k6 run tests/load/rbac-boundaries.js",
+    "openapi:generate": "node scripts/openapi.mjs",
+    "openapi:check": "node scripts/openapi.mjs --check",
     "lint": "turbo lint",
     "clean": "turbo clean && rm -rf node_modules"
   },
   "devDependencies": {
-    "turbo": "^2.5.4",
-    "typescript": "^5.8.3",
     "@types/node": "^22.15.29",
     "eslint": "^9.29.0",
-    "prettier": "^3.5.3"
+    "prettier": "^3.5.3",
+    "turbo": "^2.5.4",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "bcryptjs": "3.0.2",
+    "mongodb": "6.17.0",
+    "pg": "8.16.3"
   }
 }

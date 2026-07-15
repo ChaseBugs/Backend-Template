@@ -27,6 +27,8 @@
   "mappings": {
     "properties": {
       "id":           { "type": "keyword" },
+      "productId":    { "type": "keyword" },
+      "catalogVariantId": { "type": "keyword" },
       "agentId":      { "type": "keyword" },
       "categoryId":   { "type": "keyword" },
       "name": {
@@ -44,8 +46,13 @@
       },
       "price":        { "type": "integer" },
       "comparePrice": { "type": "integer" },
+      "brand":        { "type": "keyword" },
       "sku":          { "type": "keyword" },
+      "condition":    { "type": "keyword" },
       "status":       { "type": "keyword" },
+      "inStock":      { "type": "boolean" },
+      "ratingAverage": { "type": "float" },
+      "ratingCount":   { "type": "integer" },
       "isDeleted":    { "type": "boolean" },
       "imageUrl":     { "type": "keyword", "index": false },
       "tags":         { "type": "keyword" },

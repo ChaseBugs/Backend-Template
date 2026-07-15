@@ -1,0 +1,16 @@
+{
+  "settings": {
+    "number_of_shards": 3,
+    "number_of_replicas": 1
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "agentId": { "type": "keyword" },
+      "userId": { "type": "keyword" },
+      "businessName": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 256 } } },
+      "status": { "type": "keyword" },
+      "approvedAt": { "type": "date" }
+    }
+  }
+}

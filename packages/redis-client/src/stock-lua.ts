@@ -11,12 +11,19 @@ return redis.call('decrby', KEYS[1], ARGV[1])
 // Atomically reserves (temporary hold) stock without deducting.
 const RESERVE_STOCK_SCRIPT = `
 local current = tonumber(redis.call('get', KEYS[1]))
+if current == nil then return -1 end
 local reserved = tonumber(redis.call('get', KEYS[2])) or 0
 local available = current - reserved
-if current == nil then return -1 end
 if available < tonumber(ARGV[1]) then return -2 end
 redis.call('incrby', KEYS[2], ARGV[1])
 return available - tonumber(ARGV[1])
+`;
+
+const RELEASE_RESERVATION_SCRIPT = `
+local reserved = tonumber(redis.call('get', KEYS[1])) or 0
+local amount = tonumber(ARGV[1])
+if reserved < amount then return -1 end
+return redis.call('decrby', KEYS[1], amount)
 `;
 
 export class StockManager {
@@ -35,9 +42,10 @@ export class StockManager {
     return result as number;
   }
 
-  async releaseReservation(productId: string, quantity: number): Promise<void> {
+  async releaseReservation(productId: string, quantity: number): Promise<boolean> {
     const reservedKey = `stock:reserved:${productId}`;
-    await (this.redis as any).decrby(reservedKey, quantity);
+    const result = await (this.redis as any).eval(RELEASE_RESERVATION_SCRIPT, 1, reservedKey, quantity);
+    return result >= 0;
   }
 
   async setStock(productId: string, quantity: number): Promise<void> {
