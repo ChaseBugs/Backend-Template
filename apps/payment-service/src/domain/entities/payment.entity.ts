@@ -27,11 +27,13 @@ export interface Payment {
 export interface AgentSettlement {
   id: string;
   paymentId: string;
+  orderId: string;
   agentId: string;
   grossAmount: number;
   commissionRate: number;
   commissionAmount: number;
   netAmount: number;
+  status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'HELD' | 'CANCELLED';
   settledAt?: Date;
   createdAt: Date;
 }

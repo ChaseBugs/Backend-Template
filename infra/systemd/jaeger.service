@@ -1,0 +1,26 @@
+[Unit]
+Description=Jaeger v2 local tracing backend
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=jaeger
+Group=jaeger
+Environment=JAEGER_LISTEN_HOST=127.0.0.1
+ExecStart=/opt/jaeger/jaeger --config /etc/jaeger/config.yml
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryMax=1G
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

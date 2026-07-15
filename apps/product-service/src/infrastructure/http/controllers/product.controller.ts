@@ -2,17 +2,44 @@ import { Request, Response, NextFunction } from 'express';
 import { ProductUseCases } from '../../../application/use-cases/product.use-cases';
 import { successResponse, buildPaginatedResult, buildPagination } from '@ecommerce/shared';
 import { ForbiddenError } from '@ecommerce/errors';
+import { randomUUID } from 'crypto';
 
 const p = (v: string | string[]): string => (Array.isArray(v) ? v[0] : v);
 
 export class ProductController {
   constructor(private readonly useCases: ProductUseCases) {}
 
+  searchCatalog = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const query = req.query as any;
+      const { variants, total } = await this.useCases.searchCatalog(query);
+      res.json(successResponse(buildPaginatedResult(variants, total, query.page, query.limit)));
+    } catch (err) { next(err); }
+  };
+
+  listCatalogOffers = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const offers = await this.useCases.listCatalogOffers(p(req.params.variantId));
+      res.json(successResponse(offers));
+    } catch (err) { next(err); }
+  };
+
+  getCatalogBuyBox = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const agentId = req.user!.agentId;
+      if (!agentId) throw new ForbiddenError('Agent ID required');
+      const buyBox = await this.useCases.getBuyBox(p(req.params.variantId), agentId);
+      res.json(successResponse(buyBox));
+    } catch (err) { next(err); }
+  };
+
   create = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const agentId = req.user!.agentId;
       if (!agentId) throw new ForbiddenError('Agent ID required');
-      const result = await this.useCases.create(req.body, agentId);
+      const suppliedKey = req.headers['idempotency-key'] ?? req.headers['x-request-id'];
+      const idempotencyKey = typeof suppliedKey === 'string' && suppliedKey.length <= 255 ? suppliedKey : randomUUID();
+      const result = await this.useCases.create(req.body, agentId, idempotencyKey);
       res.status(201).json(successResponse(result));
     } catch (err) {
       next(err);

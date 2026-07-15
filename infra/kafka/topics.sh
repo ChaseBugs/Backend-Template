@@ -34,6 +34,9 @@ echo "=== Creating Kafka topics ==="
 
 # Auth events
 create_topic "user.registered"
+create_topic "user.role.changed"
+create_topic "user.status.changed"
+create_topic "agent.application.submitted"
 create_topic "agent.approved"
 create_topic "agent.rejected"
 
@@ -49,7 +52,12 @@ create_topic "inventory.reserved"
 create_topic "inventory.reservation.failed"
 create_topic "inventory.released"
 create_topic "inventory.deducted"
+create_topic "inventory.updated"
 create_topic "stock.low"
+create_topic "review.rating.updated"
+
+# Operations events
+create_topic "system.warning"
 
 # Order events
 create_topic "order.created"
@@ -57,27 +65,34 @@ create_topic "order.confirmed"
 create_topic "order.paid"
 create_topic "order.cancelled"
 create_topic "order.completed"
+create_topic "order.status.changed"
 
 # Payment events
 create_topic "payment.completed"
 create_topic "payment.failed"
 create_topic "payment.refunded"
+create_topic "payment.agent-settlement.created"
+create_topic "payment.agent-settlement.completed"
 
 # Delivery events
 create_topic "delivery.group.created"
+create_topic "delivery.delayed"
 create_topic "delivery.shipped"
 create_topic "delivery.delivered"
 create_topic "delivery.all.completed"
 create_topic "delivery.return.requested"
 create_topic "delivery.return.completed"
 
-# Dead letter queues (30 days retention) — one per domain, unused until
-# consumer error handling is wired to actually produce to these.
+# Dead letter queues (30 days retention) — one per domain.
 create_topic "order.events.dlq"       2 2592000000
 create_topic "inventory.events.dlq"   2 2592000000
 create_topic "payment.events.dlq"     2 2592000000
 create_topic "product.events.dlq"     2 2592000000
 create_topic "delivery.events.dlq"    2 2592000000
+create_topic "notification.events.dlq" 2 2592000000
+create_topic "sync.events.dlq"         2 2592000000
+create_topic "review.events.dlq"       2 2592000000
+create_topic "cart.events.dlq"         2 2592000000
 
 echo "=== All topics created ==="
 $KAFKA_HOME/bin/kafka-topics.sh --bootstrap-server "$BOOTSTRAP" --list

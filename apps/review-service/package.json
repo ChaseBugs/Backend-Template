@@ -1,0 +1,32 @@
+{
+  "name": "@ecommerce/review-service",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "pnpm build && node --test test/*.test.js",
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "start": "node dist/index.js",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@ecommerce/errors": "workspace:*",
+    "@ecommerce/kafka-client": "workspace:*",
+    "@ecommerce/logger": "workspace:*",
+    "@ecommerce/shared": "workspace:*",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "pg": "^8.16.0",
+    "zod": "^3.25.64"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.3",
+    "@types/node": "^22.15.29",
+    "@types/pg": "^8.11.14",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.8.3"
+  }
+}

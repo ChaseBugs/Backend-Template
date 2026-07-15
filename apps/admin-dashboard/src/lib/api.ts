@@ -1,3 +1,5 @@
+import { normalizeApiResponse } from './api-response.mjs';
+
 const BASE = '/api/v1';
 
 export async function apiFetch<T = unknown>(
@@ -11,13 +13,14 @@ export async function apiFetch<T = unknown>(
   };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetch(`${BASE}${path}`, { ...options, headers });
+  const url = path.startsWith(`${BASE}/`) ? path : `${BASE}${path}`;
+  const res = await fetch(url, { ...options, headers });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
     const msg = json.error?.message ?? json.message ?? `HTTP ${res.status}`;
     throw new Error(msg);
   }
-  return json.data ?? json;
+  return normalizeApiResponse(json) as T;
 }
 
 // SWR fetcher factory — generic so TypeScript infers the return type
@@ -75,6 +78,10 @@ export interface AdminOrder {
   user_email: string;
   status: string;
   total_amount: number;
+  payment_id: string | null;
+  payment_status: string | null;
+  payment_amount: number | null;
+  refunded_amount: number | null;
   created_at: string;
 }
 
@@ -185,5 +192,22 @@ export interface Settlement {
   commission_amount: number;
   net_amount: number;
   status: string;
+  created_at: string;
+}
+
+export interface SettlementAdjustment {
+  id: string;
+  settlement_id: string;
+  refund_id: string;
+  agent_id: string;
+  agent_name: string;
+  order_id: string;
+  reference_id: string;
+  reason: string;
+  gross_amount: number;
+  commission_reversal: number;
+  net_amount: number;
+  status: string;
+  processed_at: string | null;
   created_at: string;
 }

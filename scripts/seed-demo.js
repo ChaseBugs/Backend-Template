@@ -18,7 +18,8 @@ const { randomUUID } = require('crypto');
 // Config (override via env)
 // ──────────────────────────────────────────────
 const PG_URL   = process.env.DATABASE_URL   ?? 'postgresql://postgres:postgres@localhost:5432/ecommerce';
-const MONGO_URL = process.env.MONGODB_URL   ?? 'mongodb://localhost:27017/ecommerce';
+const MONGO_URL = process.env.MONGODB_URI ?? process.env.MONGODB_URL ?? 'mongodb://localhost:27017/ecommerce_read';
+const DEMO_ASSET_BASE_URL = (process.env.DEMO_ASSET_BASE_URL ?? 'http://localhost:4000').replace(/\/$/, '');
 const SALT_ROUNDS = 10;
 
 const log  = (msg) => console.log(`  ✓  ${msg}`);
@@ -157,6 +158,12 @@ const products = [
   },
 ];
 
+products.forEach((product) => {
+  product.catalog_product_id = randomUUID();
+  product.catalog_variant_id = randomUUID();
+  product.condition = 'NEW';
+});
+
 const inventories = [
   { product_id: ids.prod1, agent_id: ids.agent1, quantity_available: 50,  quantity_reserved: 0, low_stock_threshold: 5 },
   { product_id: ids.prod2, agent_id: ids.agent1, quantity_available: 80,  quantity_reserved: 0, low_stock_threshold: 10 },
@@ -184,17 +191,20 @@ const stockMap = {};
 inventories.forEach(inv => { stockMap[inv.product_id] = inv.quantity_available; });
 
 const productImages = {
-  [ids.prod1]: ['https://via.placeholder.com/400x400?text=Galaxy+S25+Ultra'],
-  [ids.prod2]: ['https://via.placeholder.com/400x400?text=Sony+WH-1000XM5'],
-  [ids.prod3]: ['https://via.placeholder.com/400x400?text=AirPods+Pro'],
-  [ids.prod4]: ['https://via.placeholder.com/400x400?text=Nike+AirMax+270'],
-  [ids.prod5]: ['https://via.placeholder.com/400x400?text=Padding+Jumper'],
-  [ids.prod6]: ['https://via.placeholder.com/400x400?text=Organic+Nuts'],
+  [ids.prod1]: [`${DEMO_ASSET_BASE_URL}/product-placeholder.svg`],
+  [ids.prod2]: [`${DEMO_ASSET_BASE_URL}/product-placeholder.svg`],
+  [ids.prod3]: [`${DEMO_ASSET_BASE_URL}/product-placeholder.svg`],
+  [ids.prod4]: [`${DEMO_ASSET_BASE_URL}/product-placeholder.svg`],
+  [ids.prod5]: [`${DEMO_ASSET_BASE_URL}/product-placeholder.svg`],
+  [ids.prod6]: [`${DEMO_ASSET_BASE_URL}/product-placeholder.svg`],
 };
 
 function buildMongoProducts() {
   return products.map(p => ({
     _id:          p.id,
+    catalogVariantId: p.catalog_variant_id,
+    sku:          p.sku,
+    condition:    p.condition,
     agentId:      p.agent_id,
     agentName:    agentNameMap[p.agent_id],
     categoryId:   p.category_id,
@@ -292,17 +302,34 @@ async function main() {
       }
       log('3 categories inserted');
 
-      // Products
+      // Global marketplace hierarchy: canonical item -> variant -> seller offer.
+      for (const p of products) {
+        await client.query(
+          `INSERT INTO product.catalog_products
+             (id, category_id, canonical_name, brand, description, status)
+           VALUES ($1,$2,$3,$4,$5,'ACTIVE')`,
+          [p.catalog_product_id, p.category_id, p.name, p.name.split(' ')[0], p.description],
+        );
+        await client.query(
+          `INSERT INTO product.catalog_variants
+             (id, catalog_product_id, variant_key, variant_name, attributes)
+           VALUES ($1,$2,md5('{}'),$3,'{}'::jsonb)`,
+          [p.catalog_variant_id, p.catalog_product_id, p.name],
+        );
+      }
+      log('6 canonical catalog products and variants inserted');
+
+      // Seller offers
       for (const p of products) {
         await client.query(
           `INSERT INTO product.products
-             (id, agent_id, category_id, name, slug, description, price, compare_price, sku, status, approved_by, approved_at, weight_g)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
-          [p.id, p.agent_id, p.category_id, p.name, p.slug, p.description,
-           p.price, p.compare_price, p.sku, p.status, p.approved_by, p.approved_at, p.weight_g],
+             (id, agent_id, category_id, catalog_variant_id, name, slug, description, price, compare_price, sku, condition, status, approved_by, approved_at, weight_g)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+          [p.id, p.agent_id, p.category_id, p.catalog_variant_id, p.name, p.slug, p.description,
+           p.price, p.compare_price, p.sku, p.condition, p.status, p.approved_by, p.approved_at, p.weight_g],
         );
       }
-      log('6 products inserted (ACTIVE)');
+      log('6 seller offers inserted (ACTIVE)');
 
       // Inventories
       for (const inv of inventories) {
@@ -314,6 +341,14 @@ async function main() {
         );
       }
       log('6 inventory records inserted');
+
+      await client.query(
+        `INSERT INTO "order".coupons
+           (code, discount_type, discount_value, min_order_amount, max_discount_amount, starts_at, expires_at, usage_limit, per_user_limit)
+         VALUES ('WELCOME10', 'PERCENT', 10, 10000, 20000, NOW() - INTERVAL '1 day', NOW() + INTERVAL '1 year', 1000, 1)
+         ON CONFLICT (code) DO UPDATE SET is_active = TRUE, updated_at = NOW()`,
+      );
+      log('Demo coupon WELCOME10 inserted');
 
       await client.query('COMMIT');
     } catch (err) {
@@ -345,6 +380,7 @@ async function main() {
     console.log('  user 1       user1@demo.com      / User1234!');
     console.log('  user 2       user2@demo.com      / User1234!');
     console.log('  user 3       user3@demo.com      / User1234!');
+    console.log('  coupon       WELCOME10 (10%, max KRW 20,000)');
     console.log('\nStart UI:  cd apps/web-demo && node src/server.js');
 
   } finally {

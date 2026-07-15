@@ -1,0 +1,13 @@
+/opt/ecommerce/backend/logs/*/*.log {
+    daily
+    rotate 30
+    size 100M
+    missingok
+    notifempty
+    compress
+    delaycompress
+    dateext
+    copytruncate
+    su ecommerce ecommerce
+    create 0640 ecommerce ecommerce
+}

@@ -5,10 +5,12 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc",
+    "test": "pnpm build && node --test test/*.test.js",
     "clean": "rm -rf dist"
   },
   "dependencies": {
     "kafkajs": "^2.2.4",
+    "ajv": "6.15.0",
     "@ecommerce/logger": "workspace:*",
     "@ecommerce/shared": "workspace:*"
   },

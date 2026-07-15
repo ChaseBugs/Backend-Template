@@ -5,29 +5,32 @@
   "main": "./dist/index.js",
   "scripts": {
     "build": "tsc",
+    "test": "pnpm build && node --test test/*.test.js",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "start": "node dist/index.js",
     "clean": "rm -rf dist"
   },
   "dependencies": {
     "@ecommerce/errors": "workspace:*",
-    "@ecommerce/shared": "workspace:*",
-    "@ecommerce/rbac": "workspace:*",
     "@ecommerce/logger": "workspace:*",
+    "@ecommerce/rbac": "workspace:*",
+    "@ecommerce/redis-client": "workspace:*",
+    "@ecommerce/shared": "workspace:*",
+    "cors": "^2.8.5",
     "express": "^5.1.0",
+    "express-async-handler": "^1.2.0",
+    "express-rate-limit": "^7.5.1",
+    "helmet": "^8.1.0",
     "http-proxy-middleware": "^3.0.5",
     "jsonwebtoken": "^9.0.2",
-    "helmet": "^8.1.0",
-    "cors": "^2.8.5",
-    "express-rate-limit": "^7.5.1",
-    "express-async-handler": "^1.2.0"
+    "swagger-ui-dist": "^5.32.8"
   },
   "devDependencies": {
-    "typescript": "^5.8.3",
-    "@types/node": "^22.15.29",
+    "@types/cors": "^2.8.17",
     "@types/express": "^5.0.3",
     "@types/jsonwebtoken": "^9.0.9",
-    "@types/cors": "^2.8.17",
-    "ts-node-dev": "^2.0.0"
+    "@types/node": "^22.15.29",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.8.3"
   }
 }

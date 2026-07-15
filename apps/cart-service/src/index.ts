@@ -2,72 +2,47 @@ import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import { z } from 'zod';
-import { createLogger } from '@ecommerce/logger';
-import { createRedisClient, RedisClient } from '@ecommerce/redis-client';
+import { createHttpObservability, createLogger, createReadinessHandler } from '@ecommerce/logger';
+import { createRedisClient } from '@ecommerce/redis-client';
 import { successResponse, errorResponse } from '@ecommerce/shared';
 import { toHttpError, NotFoundError, ValidationError } from '@ecommerce/errors';
+import { CartService, clearCartForOrderEvent } from './cart.service';
+import { createKafka, KafkaConsumer } from '@ecommerce/kafka-client';
+import { KafkaTopic } from '@ecommerce/shared';
 
 const logger = createLogger({ service: 'cart-service', level: process.env.LOG_LEVEL ?? 'info' });
 const PORT = parseInt(process.env.PORT ?? '3005', 10);
 
-const CART_TTL = 30 * 24 * 60 * 60; // 30 days
+const CART_TTL = parseInt(process.env.CART_TTL_SECONDS ?? '2592000', 10);
+const PRODUCT_SERVICE_URL = process.env.PRODUCT_SERVICE_URL ?? 'http://localhost:3002';
+const INTERNAL_SERVICE_TOKEN = process.env.INTERNAL_SERVICE_TOKEN ?? 'dev-internal-token';
 
-// Redis Hash: cart:{userId} → field=productId, value=JSON{quantity,unitPrice,productName,agentId}
-class CartService {
-  constructor(private readonly redis: RedisClient) {}
-
-  private key(userId: string) { return `cart:${userId}`; }
-
-  async getCart(userId: string): Promise<Record<string, unknown>[]> {
-    const data = await (this.redis as any).hgetall(this.key(userId));
-    if (!data) return [];
-    return Object.entries(data).map(([productId, raw]) => ({
-      productId,
-      ...JSON.parse(raw as string),
-    }));
-  }
-
-  async addItem(userId: string, productId: string, item: { quantity: number; unitPrice: number; productName: string; agentId: string }): Promise<void> {
-    const existing = await (this.redis as any).hget(this.key(userId), productId);
-    let quantity = item.quantity;
-    if (existing) {
-      const prev = JSON.parse(existing);
-      quantity = prev.quantity + item.quantity;
-    }
-    await (this.redis as any).hset(this.key(userId), productId, JSON.stringify({ ...item, quantity }));
-    await (this.redis as any).expire(this.key(userId), CART_TTL);
-  }
-
-  async updateQuantity(userId: string, productId: string, quantity: number): Promise<void> {
-    const existing = await (this.redis as any).hget(this.key(userId), productId);
-    if (!existing) throw new NotFoundError('Cart item', productId);
-    if (quantity <= 0) {
-      await (this.redis as any).hdel(this.key(userId), productId);
-    } else {
-      const item = JSON.parse(existing);
-      await (this.redis as any).hset(this.key(userId), productId, JSON.stringify({ ...item, quantity }));
-    }
-  }
-
-  async removeItem(userId: string, productId: string): Promise<void> {
-    await (this.redis as any).hdel(this.key(userId), productId);
-  }
-
-  async clearCart(userId: string): Promise<void> {
-    await (this.redis as any).del(this.key(userId));
-  }
-
-  async getItemCount(userId: string): Promise<number> {
-    return (this.redis as any).hlen(this.key(userId));
-  }
+interface ResolvedProduct {
+  productId: string;
+  agentId: string;
+  productName: string;
+  productImage?: string;
+  unitPrice: number;
 }
 
+async function resolveProduct(productId: string): Promise<ResolvedProduct> {
+  const response = await fetch(`${PRODUCT_SERVICE_URL}/internal/products/resolve`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-internal-service-token': INTERNAL_SERVICE_TOKEN },
+    body: JSON.stringify({ productIds: [productId] }),
+    signal: AbortSignal.timeout(5000),
+  });
+  if (!response.ok) throw new NotFoundError('Active product', productId);
+  const body = await response.json() as { data?: ResolvedProduct[] };
+  const product = body.data?.[0];
+  if (!product) throw new NotFoundError('Active product', productId);
+  return product;
+}
+
+// Redis Hash: cart:{userId} → field=productId, value=JSON{quantity,unitPrice,productName,agentId}
 const AddItemSchema = z.object({
   productId: z.string().uuid(),
   quantity: z.number().int().positive(),
-  unitPrice: z.number().positive(),
-  productName: z.string().min(1),
-  agentId: z.string().uuid(),
 });
 
 const UpdateQuantitySchema = z.object({
@@ -80,12 +55,30 @@ async function bootstrap(): Promise<void> {
     port: parseInt(process.env.REDIS_PORT ?? '6379', 10),
   }, logger);
 
-  const cartService = new CartService(redis);
+  const cartService = new CartService(redis as any, CART_TTL);
+  const kafka = createKafka({
+    clientId: 'cart-service',
+    brokers: (process.env.KAFKA_BROKERS ?? 'localhost:9092').split(','),
+  });
+  const consumer = new KafkaConsumer(kafka, {
+    groupId: process.env.KAFKA_GROUP_ID ?? 'cart-service-group',
+    topics: [],
+    dlqTopic: 'cart.events.dlq',
+    maxRetries: 3,
+  }, logger);
+  await consumer.connect({ topics: [KafkaTopic.ORDER_CREATED], fromBeginning: false });
+  await consumer.run(async (payload) => {
+    const event = consumer.parseMessage<{ payload?: { userId?: string } }>(payload);
+    const userId = await clearCartForOrderEvent(cartService, event);
+    logger.debug({ userId }, 'Cart cleared after durable order creation');
+  });
 
   const app = express();
   app.use(helmet());
   app.use(cors());
   app.use(express.json());
+  const observability = createHttpObservability('cart-service', logger);
+  app.use(observability.middleware);
 
   const extractUser = (req: any, _res: any, next: any) => {
     const userId = req.headers['x-user-id'];
@@ -100,6 +93,11 @@ async function bootstrap(): Promise<void> {
   };
 
   app.get('/health', (_req, res) => res.json({ status: 'ok', service: 'cart-service' }));
+  app.get('/metrics', async (_req, res) => res.type(observability.registry.contentType).send(await observability.registry.metrics()));
+  app.get('/ready', createReadinessHandler([
+    { name: 'redis', check: () => redis.ping() },
+    { name: 'kafka', check: async () => consumer.isReady() },
+  ]));
 
   app.get('/api/cart', extractUser, requireUser, async (req: any, res: any, next: any) => {
     try {
@@ -113,8 +111,15 @@ async function bootstrap(): Promise<void> {
     try {
       const result = AddItemSchema.safeParse(req.body);
       if (!result.success) throw new ValidationError('Validation failed', result.error.errors);
-      const { productId, ...item } = result.data;
-      await cartService.addItem(req.user.id, productId, item);
+      const { productId, quantity } = result.data;
+      const product = await resolveProduct(productId);
+      await cartService.addItem(req.user.id, productId, {
+        quantity,
+        unitPrice: product.unitPrice,
+        productName: product.productName,
+        productImage: product.productImage,
+        agentId: product.agentId,
+      });
       res.json(successResponse({ message: 'Item added to cart' }));
     } catch (err) { next(err); }
   });
@@ -151,9 +156,13 @@ async function bootstrap(): Promise<void> {
     logger.info(`cart-service listening on port ${PORT}`);
   });
 
-  const shutdown = (signal: string) => {
+  const shutdown = async (signal: string) => {
     logger.info(`${signal} received`);
-    server.close(() => { redis.disconnect(); process.exit(0); });
+    server.close(async () => {
+      await consumer.disconnect();
+      redis.disconnect();
+      process.exit(0);
+    });
   };
 
   process.on('SIGTERM', () => shutdown('SIGTERM'));

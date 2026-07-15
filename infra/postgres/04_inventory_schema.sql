@@ -13,10 +13,10 @@ CREATE TABLE IF NOT EXISTS inventories (
 
 CREATE TABLE IF NOT EXISTS stock_movements (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  inventory_id UUID NOT NULL REFERENCES inventory.inventories(id),
-  order_id     UUID,                                   -- ref: order.orders.id
+  product_id   UUID NOT NULL,                          -- ref: product.products.id
+  reference_id UUID,                                   -- order/saga reference
   type         VARCHAR(20) NOT NULL
-               CHECK (type IN ('INBOUND','RESERVE','RELEASE','DEDUCT','ADJUST')),
+               CHECK (type IN ('IN','OUT','RESERVE','RELEASE','ADJUST')),
   quantity     INTEGER NOT NULL,
   note         TEXT,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -24,5 +24,8 @@ CREATE TABLE IF NOT EXISTS stock_movements (
 
 CREATE INDEX IF NOT EXISTS idx_inventories_product  ON inventory.inventories(product_id);
 CREATE INDEX IF NOT EXISTS idx_inventories_agent    ON inventory.inventories(agent_id);
-CREATE INDEX IF NOT EXISTS idx_stock_movements_inv  ON inventory.stock_movements(inventory_id);
-CREATE INDEX IF NOT EXISTS idx_stock_movements_ord  ON inventory.stock_movements(order_id);
+CREATE INDEX IF NOT EXISTS idx_stock_movements_product ON inventory.stock_movements(product_id);
+CREATE INDEX IF NOT EXISTS idx_stock_movements_ref     ON inventory.stock_movements(reference_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_stock_movement_event
+  ON inventory.stock_movements(product_id, type, reference_id)
+  WHERE reference_id IS NOT NULL;

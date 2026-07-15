@@ -21,6 +21,18 @@ export interface CreateAgentProfileInput {
 }
 
 export class UserRepository {
+  async findActiveIdsByRoles(roles: UserRole[], client?: PoolClient): Promise<string[]> {
+    if (roles.length === 0) return [];
+    const db = client ?? pool;
+    const result = await db.query(
+      `SELECT id FROM users
+       WHERE role = ANY($1::text[]) AND is_active = TRUE
+       ORDER BY id`,
+      [roles],
+    );
+    return result.rows.map((row) => row.id as string);
+  }
+
   async findById(id: string, client?: PoolClient): Promise<User | null> {
     const db = client ?? pool;
     const result = await db.query(
@@ -60,9 +72,34 @@ export class UserRepository {
     await db.query(`UPDATE users SET last_login_at = NOW(), updated_at = NOW() WHERE id = $1`, [id]);
   }
 
-  async updateActiveStatus(id: string, isActive: boolean, client?: PoolClient): Promise<void> {
+  async updateActiveStatus(id: string, isActive: boolean, client?: PoolClient): Promise<Date> {
     const db = client ?? pool;
-    await db.query(`UPDATE users SET is_active = $2, updated_at = NOW() WHERE id = $1`, [id, isActive]);
+    const result = await db.query(
+      `UPDATE users SET is_active = $2, updated_at = NOW() WHERE id = $1 RETURNING updated_at`,
+      [id, isActive],
+    );
+    return new Date(result.rows[0].updated_at);
+  }
+
+  async findByIdForUpdate(id: string, client: PoolClient): Promise<User | null> {
+    const result = await client.query(
+      `SELECT id, email, password_hash, role, first_name, last_name, phone,
+              is_active, last_login_at, created_at, updated_at
+       FROM users WHERE id = $1 FOR UPDATE`,
+      [id],
+    );
+    return result.rows[0] ? this.mapUser(result.rows[0]) : null;
+  }
+
+  async updateRole(id: string, role: UserRole, client?: PoolClient): Promise<User | null> {
+    const db = client ?? pool;
+    const result = await db.query(
+      `UPDATE users SET role = $2, updated_at = NOW() WHERE id = $1
+       RETURNING id, email, password_hash, role, first_name, last_name, phone,
+                 is_active, last_login_at, created_at, updated_at`,
+      [id, role],
+    );
+    return result.rows[0] ? this.mapUser(result.rows[0]) : null;
   }
 
   async findAll(limit: number, offset: number, client?: PoolClient): Promise<{ users: User[]; total: number }> {
@@ -100,6 +137,23 @@ export class UserRepository {
 }
 
 export class AgentProfileRepository {
+  async findUserIdByAgentId(agentId: string, client?: PoolClient): Promise<string | null> {
+    const db = client ?? pool;
+    const result = await db.query(`SELECT user_id FROM agent_profiles WHERE id = $1`, [agentId]);
+    return result.rows[0]?.user_id ?? null;
+  }
+
+  async findCommissionRates(ids: string[], client?: PoolClient): Promise<Map<string, number>> {
+    if (ids.length === 0) return new Map();
+    const db = client ?? pool;
+    const result = await db.query(
+      `SELECT id, commission_rate FROM agent_profiles
+       WHERE id = ANY($1::uuid[]) AND approval_status = 'APPROVED'`,
+      [ids],
+    );
+    return new Map(result.rows.map((row) => [row.id as string, parseFloat(row.commission_rate as string)]));
+  }
+
   async findByUserId(userId: string, client?: PoolClient): Promise<AgentProfile | null> {
     const db = client ?? pool;
     const result = await db.query(
@@ -140,7 +194,7 @@ export class AgentProfileRepository {
     approvedBy: string,
     rejectionReason?: string,
     client?: PoolClient,
-  ): Promise<AgentProfile> {
+  ): Promise<AgentProfile | null> {
     const db = client ?? pool;
     const result = await db.query(
       `UPDATE agent_profiles
@@ -149,12 +203,12 @@ export class AgentProfileRepository {
            approved_at = CASE WHEN $2 = 'APPROVED' THEN NOW() ELSE NULL END,
            rejection_reason = $4,
            updated_at = NOW()
-       WHERE id = $1
+       WHERE id = $1 AND approval_status = 'PENDING'
        RETURNING id, user_id, business_name, business_number, commission_rate,
                  approval_status, approved_by, approved_at, rejection_reason, created_at, updated_at`,
       [id, status, approvedBy, rejectionReason ?? null],
     );
-    return this.mapProfile(result.rows[0]);
+    return result.rows[0] ? this.mapProfile(result.rows[0]) : null;
   }
 
   async findPending(limit: number, offset: number, client?: PoolClient): Promise<{ agents: AgentProfile[]; total: number }> {
@@ -205,6 +259,40 @@ export class AgentProfileRepository {
       supportedCouriers: row.supported_couriers,
       defaultCourier: row.default_courier,
     };
+  }
+
+  async findByIdForUpdate(id: string, client: PoolClient): Promise<AgentProfile | null> {
+    const result = await client.query(
+      `SELECT id, user_id, business_name, business_number, commission_rate,
+              approval_status, approved_by, approved_at, rejection_reason, created_at, updated_at
+       FROM agent_profiles WHERE id = $1 FOR UPDATE`,
+      [id],
+    );
+    return result.rows[0] ? this.mapProfile(result.rows[0]) : null;
+  }
+
+  async findShippingPolicies(agentIds: string[], client?: PoolClient): Promise<Map<string, AgentShippingPolicy>> {
+    const db = client ?? pool;
+    const result = await db.query(
+      `SELECT ap.id AS agent_id,
+              COALESCE(sp.base_shipping_fee, 3000) AS base_shipping_fee,
+              sp.free_shipping_threshold,
+              COALESCE(sp.remote_area_fee, 3000) AS remote_area_fee,
+              COALESCE(sp.supported_couriers, '{}') AS supported_couriers,
+              sp.default_courier
+       FROM agent_profiles ap
+       LEFT JOIN agent_shipping_policies sp ON sp.agent_id = ap.id
+       WHERE ap.id = ANY($1::uuid[]) AND ap.approval_status = 'APPROVED'`,
+      [agentIds],
+    );
+    return new Map(result.rows.map((row) => [row.agent_id, {
+      agentId: row.agent_id,
+      baseShippingFee: Number(row.base_shipping_fee),
+      freeShippingThreshold: row.free_shipping_threshold == null ? undefined : Number(row.free_shipping_threshold),
+      remoteAreaFee: Number(row.remote_area_fee),
+      supportedCouriers: row.supported_couriers,
+      defaultCourier: row.default_courier ?? undefined,
+    }]));
   }
 
   async upsertShippingPolicy(policy: AgentShippingPolicy, client?: PoolClient): Promise<void> {

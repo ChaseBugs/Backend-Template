@@ -20,6 +20,14 @@ declare global {
 
 export function authenticate(req: Request, _res: Response, next: NextFunction): void {
   const authHeader = req.headers.authorization;
+
+  // Identity headers are an internal trust boundary. Downstream services may
+  // only receive values derived from a JWT verified by this gateway.
+  delete req.headers['x-user-id'];
+  delete req.headers['x-user-role'];
+  delete req.headers['x-user-email'];
+  delete req.headers['x-agent-id'];
+
   if (!authHeader?.startsWith('Bearer ')) return next();
 
   const token = authHeader.slice(7);

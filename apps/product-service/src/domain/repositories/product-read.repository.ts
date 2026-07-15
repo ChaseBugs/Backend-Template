@@ -48,8 +48,8 @@ export class ProductReadRepository {
       if (query.maxPrice !== undefined) (filter.price as any).$lte = query.maxPrice;
     }
 
-    if (query.inStock) {
-      filter.stock = { $gt: 0 } as any;
+    if (query.inStock !== undefined) {
+      filter.stock = query.inStock ? ({ $gt: 0 } as any) : ({ $lte: 0 } as any);
     }
 
     const sortField = query.sortBy ?? 'createdAt';

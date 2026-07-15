@@ -10,6 +10,8 @@ export interface OrderItem {
   quantity: number;
   unitPrice: number;
   subtotal: number;
+  discountAmount: number;
+  shippingFee: number;
 }
 
 export interface ShippingAddress {
@@ -34,6 +36,8 @@ export interface Order {
   finalAmount: number;
   paymentId?: string;   // ref: payment.payments.id
   cancelReason?: string;
+  couponCode?: string;
+  idempotencyKey: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -43,7 +47,7 @@ export interface SagaState {
   sagaId: string;
   orderId: string;
   status: 'STARTED' | 'INVENTORY_RESERVED' | 'PAYMENT_PENDING' | 'COMPLETED' | 'COMPENSATION_STARTED' | 'FAILED';
-  items: Array<{ productId: string; quantity: number; agentId: string }>;
+  items: Array<{ productId: string; quantity: number; agentId: string; unitPrice: number; discountAmount: number; shippingFee: number }>;
   failureReason?: string;
   createdAt: Date;
   updatedAt: Date;

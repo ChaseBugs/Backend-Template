@@ -1,7 +1,8 @@
 import { Kafka, Producer, ProducerRecord, RecordMetadata, CompressionTypes } from 'kafkajs';
 import { Logger } from '@ecommerce/logger';
-import { BaseEvent } from '@ecommerce/shared';
+import { BaseEvent, KafkaEvent, KafkaTopicValue } from '@ecommerce/shared';
 import { randomUUID } from 'crypto';
+import { validateKafkaEvent } from './event-schema';
 
 export class KafkaProducer {
   private producer: Producer;
@@ -31,17 +32,23 @@ export class KafkaProducer {
     }
   }
 
-  async send<T extends Omit<BaseEvent, 'eventId' | 'occurredAt' | 'version'>>(
-    topic: string,
-    payload: T,
+  isReady(): boolean {
+    return this.connected;
+  }
+
+  async send<T extends KafkaTopicValue>(
+    topic: T,
+    payload: Omit<Extract<KafkaEvent, { topic: T }>, 'eventId' | 'occurredAt' | 'version'>,
     key?: string,
+    eventId: string = randomUUID(),
   ): Promise<RecordMetadata[]> {
-    const event: BaseEvent & T = {
+    const event = {
       ...payload,
-      eventId: randomUUID(),
+      eventId,
       occurredAt: new Date().toISOString(),
       version: 1,
-    };
+    } as BaseEvent & typeof payload;
+    validateKafkaEvent(event, topic);
 
     const record: ProducerRecord = {
       topic,

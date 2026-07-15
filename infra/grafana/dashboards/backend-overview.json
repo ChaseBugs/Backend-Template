@@ -1,0 +1,53 @@
+{
+  "annotations": { "list": [] },
+  "editable": false,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "type": "timeseries", "title": "API latency P50/P95/P99", "id": 1,
+      "targets": [
+        { "refId": "A", "legendFormat": "p50 {{__name__}}", "expr": "histogram_quantile(0.50, sum by (le, __name__) ({__name__=~\".*_http_request_duration_seconds_bucket\"}))" },
+        { "refId": "B", "legendFormat": "p95 {{__name__}}", "expr": "histogram_quantile(0.95, sum by (le, __name__) ({__name__=~\".*_http_request_duration_seconds_bucket\"}))" },
+        { "refId": "C", "legendFormat": "p99 {{__name__}}", "expr": "histogram_quantile(0.99, sum by (le, __name__) ({__name__=~\".*_http_request_duration_seconds_bucket\"}))" }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 }
+    },
+    {
+      "type": "timeseries", "title": "API calls by role", "id": 2,
+      "targets": [{ "refId": "A", "legendFormat": "{{role}}", "expr": "sum by (role) (rate({__name__=~\".*_http_requests_total\"}[5m]))" }],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 }
+    },
+    {
+      "type": "timeseries", "title": "Kafka consumer lag", "id": 3,
+      "targets": [{ "refId": "A", "legendFormat": "{{consumergroup}} {{topic}}", "expr": "sum by (consumergroup, topic) (kafka_consumergroup_lag)" }],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 }
+    },
+    {
+      "type": "timeseries", "title": "Redis memory and cache hit ratio", "id": 4,
+      "targets": [
+        { "refId": "A", "legendFormat": "memory", "expr": "redis_memory_used_bytes" },
+        { "refId": "B", "legendFormat": "hit ratio", "expr": "rate(redis_keyspace_hits_total[5m]) / clamp_min(rate(redis_keyspace_hits_total[5m]) + rate(redis_keyspace_misses_total[5m]), 1)" },
+        { "refId": "C", "legendFormat": "inventory hit ratio", "expr": "sum(rate(inventory_service_cache_lookups_total{result=\"hit\"}[5m])) / clamp_min(sum(rate(inventory_service_cache_lookups_total[5m])), 1)" }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 }
+    },
+    {
+      "type": "timeseries", "title": "Inventory reservation failure ratio", "id": 5,
+      "targets": [{ "refId": "A", "legendFormat": "failure ratio", "expr": "sum(rate(inventory_service_reservation_attempts_total{result=\"failure\"}[5m])) / clamp_min(sum(rate(inventory_service_reservation_attempts_total[5m])), 1)" }],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 }
+    },
+    {
+      "type": "timeseries", "title": "Agent order throughput", "id": 6,
+      "targets": [{ "refId": "A", "legendFormat": "{{agent_id}}", "expr": "sum by (agent_id) (rate(delivery_service_agent_orders_total[5m]))" }],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 }
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["ecommerce", "offline"],
+  "templating": { "list": [] },
+  "time": { "from": "now-6h", "to": "now" },
+  "timezone": "browser",
+  "title": "Ecommerce Backend Overview",
+  "uid": "ecommerce-backend",
+  "version": 1
+}

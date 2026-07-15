@@ -1,0 +1,18 @@
+{
+  "settings": {
+    "number_of_shards": 3,
+    "number_of_replicas": 1
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "userId": { "type": "keyword" },
+      "email": { "type": "keyword" },
+      "role": { "type": "keyword" },
+      "isActive": { "type": "boolean" },
+      "firstName": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 128 } } },
+      "lastName": { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 128 } } },
+      "registeredAt": { "type": "date" }
+    }
+  }
+}

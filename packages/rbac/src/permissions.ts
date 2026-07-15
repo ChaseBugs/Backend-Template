@@ -3,6 +3,7 @@ import { UserRole } from '@ecommerce/shared';
 export enum Permission {
   // User management
   CREATE_ADMIN = 'create:admin',
+  CHANGE_USER_ROLE = 'change:user_role',
   READ_ALL_USERS = 'read:all_users',
   UPDATE_ANY_USER = 'update:any_user',
   DELETE_ANY_USER = 'delete:any_user',
@@ -18,6 +19,7 @@ export enum Permission {
   CREATE_PRODUCT = 'create:product',
   UPDATE_OWN_PRODUCT = 'update:own_product',
   DELETE_OWN_PRODUCT = 'delete:own_product',
+  DELETE_ANY_PRODUCT = 'delete:any_product',
   APPROVE_PRODUCT = 'approve:product',
   REJECT_PRODUCT = 'reject:product',
   READ_ANY_PRODUCT = 'read:any_product',
@@ -57,6 +59,7 @@ export enum Permission {
   READ_DASHBOARD = 'read:dashboard',
   READ_REPORTS = 'read:reports',
   READ_SETTLEMENTS = 'read:settlements',
+  MANAGE_SETTLEMENTS = 'manage:settlements',
 }
 
 const rolePermissions: Record<UserRole, Permission[]> = {
@@ -72,6 +75,7 @@ const rolePermissions: Record<UserRole, Permission[]> = {
     Permission.REJECT_PRODUCT,
     Permission.READ_ANY_PRODUCT,
     Permission.MODERATE_PRODUCT,
+    Permission.DELETE_ANY_PRODUCT,
     Permission.READ_ALL_ORDERS,
     Permission.CANCEL_ANY_ORDER,
     Permission.UPDATE_ANY_ORDER_STATUS,
@@ -113,5 +117,5 @@ export function hasPermission(role: UserRole, permission: Permission): boolean {
 }
 
 export function getPermissions(role: UserRole): Permission[] {
-  return rolePermissions[role] ?? [];
+  return [...(rolePermissions[role] ?? [])];
 }

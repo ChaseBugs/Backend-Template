@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import useSWR from 'swr';
 import { useAuth } from '@/lib/auth';
-import { makeFetcher, type Settlement, type PaginatedResult } from '@/lib/api';
+import { apiPatch, makeFetcher, type Settlement, type SettlementAdjustment, type PaginatedResult } from '@/lib/api';
 import StatusBadge from '@/components/StatusBadge';
 
 const won = (n: number) => `₩${Math.round(n).toLocaleString('ko-KR')}`;
@@ -24,8 +24,14 @@ export default function SettlementsPage() {
   }, [user, router]);
 
   const key = `/api/v1/admin/settlements?page=${page}&limit=20`;
-  const { data, error } = useSWR<PaginatedResult<Settlement>>(
+  const { data, error, mutate } = useSWR<PaginatedResult<Settlement>>(
     user?.role === 'super-admin' ? key : null,
+    makeFetcher(token),
+    { refreshInterval: 30000 },
+  );
+  const adjustmentKey = '/api/v1/admin/settlement-adjustments?page=1&limit=100';
+  const { data: adjustments, error: adjustmentError, mutate: mutateAdjustments } = useSWR<PaginatedResult<SettlementAdjustment>>(
+    user?.role === 'super-admin' ? adjustmentKey : null,
     makeFetcher(token),
     { refreshInterval: 30000 },
   );
@@ -44,6 +50,16 @@ export default function SettlementsPage() {
   const totalGross = data?.items?.reduce((s, r) => s + r.gross_amount, 0) ?? 0;
   const totalNet   = data?.items?.reduce((s, r) => s + r.net_amount, 0) ?? 0;
   const totalComm  = data?.items?.reduce((s, r) => s + r.commission_amount, 0) ?? 0;
+
+  async function updateStatus(id: string, status: 'PROCESSING' | 'COMPLETED' | 'HELD') {
+    await apiPatch(`/api/v1/admin/settlements/${id}/status`, token, { status });
+    await mutate();
+  }
+
+  async function updateAdjustmentStatus(id: string, status: 'PROCESSING' | 'COMPLETED' | 'CANCELLED') {
+    await apiPatch(`/api/v1/admin/settlement-adjustments/${id}/status`, token, { status });
+    await mutateAdjustments();
+  }
 
   return (
     <div className="p-8 space-y-6">
@@ -95,7 +111,17 @@ export default function SettlementsPage() {
                 <td className="td text-slate-800">{won(s.gross_amount)}</td>
                 <td className="td text-amber-600">{won(s.commission_amount)}</td>
                 <td className="td font-bold text-emerald-600">{won(s.net_amount)}</td>
-                <td className="td"><StatusBadge value={s.status} /></td>
+                <td className="td">
+                  <div className="flex items-center gap-2">
+                    <StatusBadge value={s.status} />
+                    {s.status === 'PENDING' && (
+                      <button className="btn-outline text-xs py-1 px-2" onClick={() => updateStatus(s.id, 'PROCESSING')}>Process</button>
+                    )}
+                    {s.status === 'PROCESSING' && (
+                      <button className="btn-primary text-xs py-1 px-2" onClick={() => updateStatus(s.id, 'COMPLETED')}>Complete</button>
+                    )}
+                  </div>
+                </td>
                 <td className="td text-xs text-slate-400">{fmt(s.created_at)}</td>
               </tr>
             ))}
@@ -116,6 +142,40 @@ export default function SettlementsPage() {
           ))}
         </div>
       )}
+
+      <div className="space-y-3">
+        <div>
+          <h2 className="text-xl font-bold text-slate-800">Refund clawbacks</h2>
+          <p className="text-sm text-slate-500">Amounts recoverable from settlements already paid before a refund completed.</p>
+        </div>
+        {adjustmentError && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">{adjustmentError.message}</div>}
+        <div className="card overflow-hidden">
+          <table className="w-full">
+            <thead><tr>
+              <th className="th">Agent</th><th className="th">Refund reference</th><th className="th">Refund</th>
+              <th className="th">Commission reversal</th><th className="th">Recover</th><th className="th">Status</th><th className="th">Created</th>
+            </tr></thead>
+            <tbody>
+              {(adjustments?.items ?? []).map((a) => (
+                <tr key={a.id} className="hover:bg-slate-50">
+                  <td className="td font-medium text-slate-700">{a.agent_name}</td>
+                  <td className="td font-mono text-xs text-slate-500">{a.reference_id}</td>
+                  <td className="td">{won(a.gross_amount)}</td>
+                  <td className="td text-amber-600">{won(a.commission_reversal)}</td>
+                  <td className="td font-bold text-red-600">{won(a.net_amount)}</td>
+                  <td className="td"><div className="flex items-center gap-2">
+                    <StatusBadge value={a.status} />
+                    {a.status === 'PENDING' && <button className="btn-outline text-xs py-1 px-2" onClick={() => updateAdjustmentStatus(a.id, 'PROCESSING')}>Process</button>}
+                    {a.status === 'PROCESSING' && <button className="btn-primary text-xs py-1 px-2" onClick={() => updateAdjustmentStatus(a.id, 'COMPLETED')}>Complete</button>}
+                  </div></td>
+                  <td className="td text-xs text-slate-400">{fmt(a.created_at)}</td>
+                </tr>
+              ))}
+              {!(adjustments?.items?.length) && !adjustmentError && <tr><td colSpan={7} className="td text-center text-slate-400 py-8">No refund clawbacks.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }

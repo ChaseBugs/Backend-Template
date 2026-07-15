@@ -4,16 +4,44 @@ import { DeliveryGroup, DeliveryGroupItem, ReturnRequest } from '../entities/del
 import { DeliveryGroupStatus } from '@ecommerce/shared';
 
 export class DeliveryRepository {
-  async createGroup(group: Omit<DeliveryGroup, 'createdAt' | 'updatedAt'>, items: Omit<DeliveryGroupItem, 'id'>[], client?: PoolClient): Promise<DeliveryGroup> {
+  async findOverduePreparing(cutoff: Date, limit: number, client?: PoolClient): Promise<DeliveryGroup[]> {
+    const db = client ?? pool;
+    const result = await db.query(
+      `SELECT * FROM delivery_groups
+       WHERE status = $1 AND created_at <= $2 AND delay_alerted_at IS NULL
+       ORDER BY created_at ASC
+       LIMIT $3`,
+      [DeliveryGroupStatus.PREPARING, cutoff, limit],
+    );
+    return result.rows.map(this.mapGroup);
+  }
+
+  async markDelayAlerted(id: string, client?: PoolClient): Promise<void> {
+    const db = client ?? pool;
+    await db.query(
+      `UPDATE delivery_groups SET delay_alerted_at = NOW(), updated_at = NOW()
+       WHERE id = $1 AND delay_alerted_at IS NULL`,
+      [id],
+    );
+  }
+
+  async createGroup(group: Omit<DeliveryGroup, 'createdAt' | 'updatedAt'>, items: Omit<DeliveryGroupItem, 'id'>[], client?: PoolClient): Promise<{ group: DeliveryGroup; created: boolean }> {
     const db = client ?? pool;
 
     const result = await db.query(
-      `INSERT INTO delivery_groups (id, order_id, agent_id, status, shipping_fee)
-       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [group.id, group.orderId, group.agentId, group.status, group.shippingFee],
+      `INSERT INTO delivery_groups (id, order_id, user_id, payment_id, agent_id, status, shipping_fee)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (order_id, agent_id) DO NOTHING RETURNING *`,
+      [group.id, group.orderId, group.userId, group.paymentId, group.agentId, group.status, group.shippingFee],
     );
 
-    for (const item of items) {
+    const created = Boolean(result.rows[0]);
+    const row = result.rows[0] ?? (await db.query(
+      `SELECT * FROM delivery_groups WHERE order_id = $1 AND agent_id = $2`,
+      [group.orderId, group.agentId],
+    )).rows[0];
+
+    if (created) for (const item of items) {
       await db.query(
         `INSERT INTO delivery_group_items (id, delivery_group_id, product_id, quantity)
          VALUES (gen_random_uuid(), $1, $2, $3)`,
@@ -21,7 +49,7 @@ export class DeliveryRepository {
       );
     }
 
-    return this.mapGroup(result.rows[0]);
+    return { group: this.mapGroup(row), created };
   }
 
   async findById(id: string, client?: PoolClient): Promise<DeliveryGroup | null> {
@@ -36,13 +64,24 @@ export class DeliveryRepository {
     return result.rows.map(this.mapGroup);
   }
 
-  async findByAgent(agentId: string, limit: number, offset: number, client?: PoolClient): Promise<{ groups: DeliveryGroup[]; total: number }> {
+  async findByAgent(agentId: string, limit: number, offset: number, status?: DeliveryGroupStatus, client?: PoolClient): Promise<{ groups: DeliveryGroup[]; total: number }> {
     const db = client ?? pool;
+    const statusClause = status ? ' AND status = $4' : '';
+    const values = status ? [agentId, limit, offset, status] : [agentId, limit, offset];
     const [rows, count] = await Promise.all([
-      db.query(`SELECT * FROM delivery_groups WHERE agent_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`, [agentId, limit, offset]),
-      db.query(`SELECT COUNT(*) FROM delivery_groups WHERE agent_id = $1`, [agentId]),
+      db.query(`SELECT * FROM delivery_groups WHERE agent_id = $1${statusClause} ORDER BY created_at DESC LIMIT $2 OFFSET $3`, values),
+      db.query(`SELECT COUNT(*) FROM delivery_groups WHERE agent_id = $1${status ? ' AND status = $2' : ''}`, status ? [agentId, status] : [agentId]),
     ]);
     return { groups: rows.rows.map(this.mapGroup), total: parseInt(count.rows[0].count, 10) };
+  }
+
+  async getAgentStatusCounts(agentId: string, client?: PoolClient): Promise<Array<{ status: string; count: number }>> {
+    const db = client ?? pool;
+    const result = await db.query(
+      `SELECT status, COUNT(*)::int AS count FROM delivery_groups WHERE agent_id = $1 GROUP BY status`,
+      [agentId],
+    );
+    return result.rows.map((row) => ({ status: row.status as string, count: Number(row.count) }));
   }
 
   async updateStatus(id: string, status: DeliveryGroupStatus, extra?: {
@@ -103,10 +142,39 @@ export class DeliveryRepository {
     return result.rows[0] ? this.mapReturnRequest(result.rows[0]) : null;
   }
 
+  async countFulfillmentStarted(orderId: string, client?: PoolClient): Promise<number> {
+    const db = client ?? pool;
+    const result = await db.query(
+      `SELECT COUNT(*) FROM delivery_groups
+       WHERE order_id = $1 AND status IN ($2, $3, $4, $5, $6)`,
+      [orderId, DeliveryGroupStatus.SHIPPED, DeliveryGroupStatus.IN_TRANSIT, DeliveryGroupStatus.DELIVERED,
+       DeliveryGroupStatus.RETURN_REQUESTED, DeliveryGroupStatus.RETURNED],
+    );
+    return parseInt(result.rows[0].count, 10);
+  }
+
+  async cancelPreparingByOrder(orderId: string, client?: PoolClient): Promise<number> {
+    const db = client ?? pool;
+    const result = await db.query(
+      `UPDATE delivery_groups SET status = $2, updated_at = NOW()
+       WHERE order_id = $1 AND status = $3`,
+      [orderId, DeliveryGroupStatus.CANCELLED, DeliveryGroupStatus.PREPARING],
+    );
+    return result.rowCount ?? 0;
+  }
+
+  async findReturnById(id: string, client?: PoolClient): Promise<ReturnRequest | null> {
+    const db = client ?? pool;
+    const result = await db.query(`SELECT * FROM return_requests WHERE id = $1`, [id]);
+    return result.rows[0] ? this.mapReturnRequest(result.rows[0]) : null;
+  }
+
   private mapGroup(row: Record<string, unknown>): DeliveryGroup {
     return {
       id: row.id as string,
       orderId: row.order_id as string,
+      userId: row.user_id as string,
+      paymentId: row.payment_id as string,
       agentId: row.agent_id as string,
       status: row.status as DeliveryGroupStatus,
       shippingFee: parseFloat(row.shipping_fee as string),

@@ -23,7 +23,13 @@ export class CreateAdminUseCase {
 
   async execute(dto: CreateAdminDto): Promise<CreateAdminResult> {
     const existing = await this.userRepo.findByEmail(dto.email);
-    if (existing) throw new ConflictError('Email already registered');
+    if (existing) {
+      const matches = existing.role === UserRole.ADMIN && existing.firstName === dto.firstName
+        && existing.lastName === dto.lastName && await bcrypt.compare(dto.password, existing.passwordHash);
+      if (!matches) throw new ConflictError('Email already registered');
+      await this.publishRegistered(existing);
+      return { id: existing.id, email: existing.email, role: existing.role, firstName: existing.firstName, lastName: existing.lastName };
+    }
 
     const passwordHash = await bcrypt.hash(dto.password, 12);
     const user = await this.userRepo.create({
@@ -35,6 +41,18 @@ export class CreateAdminUseCase {
       lastName: dto.lastName,
     });
 
+    await this.publishRegistered(user);
+
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      firstName: user.firstName,
+      lastName: user.lastName,
+    };
+  }
+
+  private async publishRegistered(user: CreateAdminResult): Promise<void> {
     await this.kafkaProducer.send(
       KafkaTopic.USER_REGISTERED,
       {
@@ -50,12 +68,5 @@ export class CreateAdminUseCase {
       user.id,
     );
 
-    return {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      firstName: user.firstName,
-      lastName: user.lastName,
-    };
   }
 }

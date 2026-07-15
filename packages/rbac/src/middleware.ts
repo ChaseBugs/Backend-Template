@@ -37,6 +37,14 @@ export function requireRole(...roles: UserRole[]) {
   };
 }
 
+export function requireApprovedAgent(req: Request, _res: Response, next: NextFunction): void {
+  if (!req.user) return next(new UnauthorizedError());
+  if (req.user.role !== UserRole.AGENT || !req.user.agentId) {
+    return next(new ForbiddenError('Approved agent access required'));
+  }
+  next();
+}
+
 export function requirePermission(permission: Permission) {
   return (req: Request, _res: Response, next: NextFunction): void => {
     if (!req.user) {

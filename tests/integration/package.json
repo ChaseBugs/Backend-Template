@@ -1,0 +1,16 @@
+{
+  "name": "@ecommerce/integration-tests",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test:integration": "pnpm --filter @ecommerce/kafka-client build && pnpm --filter @ecommerce/rabbitmq-client build && pnpm --filter @ecommerce/redis-client build && node --test --test-concurrency=1 test/*.test.js",
+    "test:e2e": "node --test --test-concurrency=1 e2e/full-commerce.e2e.js"
+  },
+  "dependencies": {
+    "@ecommerce/kafka-client": "workspace:*",
+    "@ecommerce/rabbitmq-client": "workspace:*",
+    "@ecommerce/redis-client": "workspace:*",
+    "mongodb": "^6.17.0",
+    "pg": "^8.16.0"
+  }
+}

@@ -14,15 +14,10 @@ export default function UsersPage() {
   const [search, setSearch] = useState('');
   const [role, setRole]     = useState('');
 
-  const key = `/api/v1/admin/users?page=${page}&limit=20`;
+  const key = `/api/v1/admin/users?page=${page}&limit=20${role ? `&role=${role}` : ''}${search.trim() ? `&search=${encodeURIComponent(search.trim())}` : ''}`;
   const { data, error } = useSWR<PaginatedResult<AdminUser>>(key, makeFetcher(token), { refreshInterval: 15000 });
 
-  const rows = (data?.items ?? []).filter((u) => {
-    const q = search.toLowerCase();
-    const matchSearch = !q || u.email.toLowerCase().includes(q) || u.first_name.toLowerCase().includes(q);
-    const matchRole   = !role || u.role === role;
-    return matchSearch && matchRole;
-  });
+  const rows = data?.items ?? [];
 
   async function toggleStatus(user: AdminUser) {
     await apiPatch(`/api/v1/admin/users/${user.id}/status`, token, { isActive: !user.is_active });
@@ -40,11 +35,11 @@ export default function UsersPage() {
       <div className="flex flex-wrap gap-3">
         <input
           className="input max-w-xs" placeholder="이메일 / 이름 검색"
-          value={search} onChange={(e) => setSearch(e.target.value)}
+          value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }}
         />
         <select
           className="input w-40"
-          value={role} onChange={(e) => setRole(e.target.value)}
+          value={role} onChange={(e) => { setRole(e.target.value); setPage(1); }}
         >
           {ROLES.map((r) => <option key={r} value={r}>{r || '전체 역할'}</option>)}
         </select>
