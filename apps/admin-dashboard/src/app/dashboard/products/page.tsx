@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import useSWR, { mutate as globalMutate } from 'swr';
 import { useAuth } from '@/lib/auth';
-import { makeFetcher, apiPatch, type Product, type PaginatedResult, type AgentProfile } from '@/lib/api';
+import { makeFetcher, apiDelete, apiPatch, type Product, type PaginatedResult, type AgentProfile } from '@/lib/api';
 import StatusBadge from '@/components/StatusBadge';
 
 const won = (n: number) => `₩${n.toLocaleString('ko-KR')}`;
@@ -57,6 +57,17 @@ export default function ProductsPage() {
       showToast('상품이 거절되었습니다.');
     } catch (e: unknown) {
       showToast(e instanceof Error ? e.message : '오류가 발생했습니다.', false);
+    }
+  }
+
+  async function forceDelete(product: Product) {
+    if (!window.confirm(`상품 "${product.name}"을 비활성화하시겠습니까?`)) return;
+    try {
+      await apiDelete(`/api/v1/admin/products/${product.id}`, token);
+      globalMutate(key);
+      showToast('상품이 비활성화되었습니다.');
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : '상품 삭제 중 오류가 발생했습니다.', false);
     }
   }
 
@@ -168,6 +179,9 @@ export default function ProductsPage() {
                       <button onClick={() => approve(p.id)} className="btn-success text-xs py-1 px-2">승인</button>
                       <button onClick={() => setRejectId(p.id)} className="btn-danger text-xs py-1 px-2">거절</button>
                     </div>
+                  )}
+                  {p.status !== 'INACTIVE' && (
+                    <button onClick={() => forceDelete(p)} className="btn-danger text-xs py-1 px-2 mt-1">강제 삭제</button>
                   )}
                 </td>
               </tr>

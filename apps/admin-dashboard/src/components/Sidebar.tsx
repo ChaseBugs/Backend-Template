@@ -12,10 +12,10 @@ const NAV_COMMON = [
   { href: '/dashboard/orders',      icon: '🛒', label: '주문 관리' },
   { href: '/dashboard/deliveries',  icon: '🚚', label: '배송 현황' },
   { href: '/dashboard/analytics',   icon: '📊', label: '통계 분석' },
-  { href: '/dashboard/audit',       icon: '📋', label: '감사 로그' },
 ];
 
 const NAV_SUPER_ADMIN = [
+  { href: '/dashboard/audit',       icon: '📋', label: '감사 로그' },
   { href: '/dashboard/settlements', icon: '💳', label: '정산 관리' },
 ];
 

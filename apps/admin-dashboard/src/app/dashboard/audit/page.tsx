@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import { useAuth } from '@/lib/auth';
 import { makeFetcher, type AuditLog, type PaginatedResult } from '@/lib/api';
@@ -9,15 +10,22 @@ import StatusBadge from '@/components/StatusBadge';
 const fmt = (d: string) => new Date(d).toLocaleString('ko-KR');
 
 export default function AuditPage() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const router = useRouter();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
 
+  useEffect(() => {
+    if (user && user.role !== 'super-admin') router.replace('/dashboard');
+  }, [user, router]);
+
   const { data, error } = useSWR<PaginatedResult<AuditLog>>(
-    `/api/v1/admin/audit-logs?page=${page}&limit=25`,
+    user?.role === 'super-admin' ? `/api/v1/admin/audit-logs?page=${page}&limit=25` : null,
     makeFetcher(token),
     { refreshInterval: 30000 },
   );
+
+  if (user?.role !== 'super-admin') return null;
 
   const rows = (data?.items ?? []).filter((l) => {
     const q = search.toLowerCase();

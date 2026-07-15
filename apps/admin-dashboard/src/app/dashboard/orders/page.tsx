@@ -3,33 +3,38 @@
 import { useState } from 'react';
 import useSWR, { mutate as globalMutate } from 'swr';
 import { useAuth } from '@/lib/auth';
-import { makeFetcher, apiPatch, type AdminOrder, type PaginatedResult } from '@/lib/api';
+import { makeFetcher, apiPatch, apiPost, type AdminOrder, type AgentProfile, type PaginatedResult } from '@/lib/api';
 import StatusBadge from '@/components/StatusBadge';
 
 const won = (n: number) => `₩${n.toLocaleString('ko-KR')}`;
 const fmt = (d: string) => new Date(d).toLocaleString('ko-KR', { year: '2-digit', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
 
-const STATUS_OPTIONS = ['', 'PENDING', 'CONFIRMED', 'PAYMENT_PENDING', 'PAID', 'SHIPPED', 'COMPLETED', 'CANCELLED', 'REFUNDED'];
-const CHANGEABLE_STATUSES = ['PENDING','CONFIRMED','PAYMENT_PENDING','PAID','SHIPPED','COMPLETED','CANCELLED','REFUNDED'];
+const STATUS_OPTIONS = ['', 'PENDING', 'PAYMENT_PENDING', 'PAID', 'PROCESSING', 'PARTIALLY_SHIPPED', 'SHIPPED', 'COMPLETED', 'CANCELLED', 'REFUNDED'];
+const CHANGEABLE_STATUSES = ['PENDING','PAYMENT_PENDING','PAID','PROCESSING','PARTIALLY_SHIPPED','SHIPPED','COMPLETED','CANCELLED','REFUNDED'];
 
 export default function OrdersPage() {
   const { token } = useAuth();
   const [page, setPage]     = useState(1);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
+  const [agentId, setAgentId] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [editOrder, setEditOrder] = useState<AdminOrder | null>(null);
   const [newStatus, setNewStatus] = useState('');
+  const [refundOrder, setRefundOrder] = useState<AdminOrder | null>(null);
+  const [refundAmount, setRefundAmount] = useState('');
+  const [refundReason, setRefundReason] = useState('');
+  const [refundKey, setRefundKey] = useState('');
+  const [refundPending, setRefundPending] = useState(false);
   const [toast, setToast]   = useState<{ msg: string; ok: boolean } | null>(null);
 
-  const key = `/api/v1/admin/orders?page=${page}&limit=20`;
+  const filters = `${status ? `&status=${status}` : ''}${agentId ? `&agentId=${agentId}` : ''}${dateFrom ? `&dateFrom=${dateFrom}` : ''}${dateTo ? `&dateTo=${dateTo}` : ''}${search.trim() ? `&search=${encodeURIComponent(search.trim())}` : ''}`;
+  const key = `/api/v1/admin/orders?page=${page}&limit=20${filters}`;
   const { data, error } = useSWR<PaginatedResult<AdminOrder>>(key, makeFetcher(token), { refreshInterval: 20000 });
+  const { data: agents } = useSWR<PaginatedResult<AgentProfile>>('/api/v1/agents?status=APPROVED&limit=100', makeFetcher(token));
 
-  const rows = (data?.items ?? []).filter((o) => {
-    const q = search.toLowerCase();
-    const matchSearch = !q || o.user_email.toLowerCase().includes(q) || o.id.toLowerCase().includes(q);
-    const matchStatus = !status || o.status === status;
-    return matchSearch && matchStatus;
-  });
+  const rows = data?.items ?? [];
 
   const summary = data?.items?.reduce<Record<string, number>>((acc, o) => {
     acc[o.status] = (acc[o.status] ?? 0) + 1;
@@ -54,6 +59,40 @@ export default function OrdersPage() {
     }
   }
 
+  function openRefund(order: AdminOrder) {
+    const remaining = (order.payment_amount ?? 0) - (order.refunded_amount ?? 0);
+    setRefundOrder(order);
+    setRefundAmount(String(remaining));
+    setRefundReason('');
+    setRefundKey(crypto.randomUUID());
+  }
+
+  async function issueRefund() {
+    if (!refundOrder?.payment_id || refundPending) return;
+    const amount = Number(refundAmount);
+    const remaining = (refundOrder.payment_amount ?? 0) - (refundOrder.refunded_amount ?? 0);
+    if (!Number.isSafeInteger(amount) || amount <= 0 || amount > remaining) {
+      return showToast(`환불 금액은 1원 이상 ${won(remaining)} 이하여야 합니다.`, false);
+    }
+    if (!refundReason.trim()) return showToast('환불 사유를 입력하세요.', false);
+
+    setRefundPending(true);
+    try {
+      await apiPost(`/api/v1/admin/payments/${refundOrder.payment_id}/refund`, token, {
+        refundAmount: amount,
+        reason: refundReason.trim(),
+        idempotencyKey: refundKey,
+      });
+      setRefundOrder(null);
+      globalMutate(key);
+      showToast('환불 요청이 처리되었습니다.');
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : '환불 처리 중 오류가 발생했습니다.', false);
+    } finally {
+      setRefundPending(false);
+    }
+  }
+
   return (
     <div className="p-8 space-y-6">
       {/* Toast */}
@@ -74,7 +113,7 @@ export default function OrdersPage() {
         {STATUS_OPTIONS.filter(Boolean).map((s) => (
           <button
             key={s}
-            onClick={() => setStatus(status === s ? '' : s)}
+            onClick={() => { setStatus(status === s ? '' : s); setPage(1); }}
             className={`text-xs px-3 py-1.5 rounded-full font-semibold border transition-colors ${
               status === s
                 ? 'bg-blue-500 text-white border-blue-500'
@@ -90,8 +129,14 @@ export default function OrdersPage() {
       <div className="flex flex-wrap gap-3">
         <input
           className="input max-w-xs" placeholder="이메일 / 주문 ID 검색"
-          value={search} onChange={(e) => setSearch(e.target.value)}
+          value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }}
         />
+        <select className="input w-52" value={agentId} onChange={(e) => { setAgentId(e.target.value); setPage(1); }}>
+          <option value="">전체 에이전트</option>
+          {(agents?.items ?? []).map((agent) => <option key={agent.id} value={agent.id}>{agent.businessName}</option>)}
+        </select>
+        <input className="input w-44" type="date" aria-label="시작일" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1); }} />
+        <input className="input w-44" type="date" aria-label="종료일" min={dateFrom || undefined} value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1); }} />
       </div>
 
       {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">{error.message}</div>}
@@ -117,12 +162,20 @@ export default function OrdersPage() {
                 <td className="td"><StatusBadge value={o.status} /></td>
                 <td className="td text-slate-400 text-xs whitespace-nowrap">{fmt(o.created_at)}</td>
                 <td className="td">
-                  <button
-                    onClick={() => { setEditOrder(o); setNewStatus(o.status); }}
-                    className="btn-ghost text-xs py-1 px-2"
-                  >
-                    상태 변경
-                  </button>
+                  <div className="flex gap-1 flex-wrap">
+                    <button
+                      onClick={() => { setEditOrder(o); setNewStatus(o.status); }}
+                      className="btn-ghost text-xs py-1 px-2"
+                    >
+                      상태 변경
+                    </button>
+                    {o.payment_id && ['COMPLETED', 'PARTIALLY_REFUNDED'].includes(o.payment_status ?? '') &&
+                      (o.payment_amount ?? 0) > (o.refunded_amount ?? 0) && (
+                      <button onClick={() => openRefund(o)} className="btn-ghost text-xs py-1 px-2 text-red-600">
+                        환불
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -178,6 +231,31 @@ export default function OrdersPage() {
                 className="btn-primary flex-1 justify-center"
               >
                 변경 확정
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {refundOrder && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
+            <h3 className="font-bold text-slate-800 text-lg mb-1">결제 환불</h3>
+            <p className="text-xs text-slate-500 mb-4 font-mono">주문 {refundOrder.id.slice(0, 20)}…</p>
+            <p className="text-sm text-slate-600 mb-4">
+              결제 {won(refundOrder.payment_amount ?? 0)} · 기환불 {won(refundOrder.refunded_amount ?? 0)}
+            </p>
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">환불 금액</label>
+            <input className="input mb-4" type="number" min="1"
+              max={(refundOrder.payment_amount ?? 0) - (refundOrder.refunded_amount ?? 0)}
+              value={refundAmount} onChange={(e) => setRefundAmount(e.target.value)} />
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">환불 사유</label>
+            <textarea className="input mb-5" rows={3} maxLength={500} value={refundReason}
+              onChange={(e) => setRefundReason(e.target.value)} placeholder="고객에게 기록될 환불 사유" />
+            <div className="flex gap-2">
+              <button onClick={() => setRefundOrder(null)} disabled={refundPending} className="btn-outline flex-1 justify-center">취소</button>
+              <button onClick={issueRefund} disabled={refundPending} className="btn-primary flex-1 justify-center bg-red-500 hover:bg-red-600">
+                {refundPending ? '처리 중…' : '환불 실행'}
               </button>
             </div>
           </div>

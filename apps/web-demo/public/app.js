@@ -24,7 +24,7 @@ async function api(method, path, body, authed = true) {
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const msg = data.message ?? data.error ?? `HTTP ${res.status}`;
+    const msg = data.error?.message ?? data.message ?? (typeof data.error === 'string' ? data.error : `HTTP ${res.status}`);
     throw new Error(msg);
   }
   return data.data ?? data;
@@ -421,6 +421,10 @@ registerRoute('/checkout', async () => {
             <input id="o-addr" class="form-input" placeholder="서울시 강남구 테헤란로 123">
           </div>
           <div class="form-group">
+            <label class="form-label">City</label>
+            <input id="o-city" class="form-input" placeholder="Seoul">
+          </div>
+          <div class="form-group">
             <label class="form-label">상세주소</label>
             <input id="o-addr2" class="form-input" placeholder="101동 202호">
           </div>
@@ -440,6 +444,10 @@ registerRoute('/checkout', async () => {
             <label class="form-label">주문 메모</label>
             <input id="o-note" class="form-input" placeholder="배송 시 메모 (선택)">
           </div>
+          <div class="form-group">
+            <label class="form-label">쿠폰 코드</label>
+            <input id="o-coupon" class="form-input" maxlength="50" placeholder="WELCOME10 (선택)">
+          </div>
           <button class="btn btn-primary btn-block" onclick="submitOrder()">결제하기</button>
         </div>
         <div class="cart-summary">
@@ -452,13 +460,14 @@ registerRoute('/checkout', async () => {
 
   window.submitOrder = async () => {
     const addr = {
-      name:       document.getElementById('o-name').value,
-      phone:      document.getElementById('o-phone').value,
-      address:    document.getElementById('o-addr').value,
-      address2:   document.getElementById('o-addr2').value,
-      postalCode: document.getElementById('o-zip').value,
+      recipientName: document.getElementById('o-name').value.trim(),
+      phone:         document.getElementById('o-phone').value.trim(),
+      addressLine1:  document.getElementById('o-addr').value.trim(),
+      addressLine2:  document.getElementById('o-addr2').value.trim() || undefined,
+      city:          document.getElementById('o-city').value.trim(),
+      postalCode:    document.getElementById('o-zip').value.trim(),
     };
-    if (!addr.name || !addr.address || !addr.phone) { toast('배송 정보를 모두 입력해주세요.', 'error'); return; }
+    if (!addr.recipientName || !addr.addressLine1 || !addr.city || !addr.phone || !addr.postalCode) { toast('배송 정보를 모두 입력해주세요.', 'error'); return; }
 
     const orderItems = items.map(i => ({
       productId:   i.productId,
@@ -469,13 +478,27 @@ registerRoute('/checkout', async () => {
     }));
 
     try {
+      const idempotencyKey = `demo-${Date.now()}`;
+      const couponCode = document.getElementById('o-coupon').value.trim();
       const order = await post('/orders', {
         items:           orderItems,
         shippingAddress: addr,
-        note:            document.getElementById('o-note').value,
-        paymentMethod:   document.getElementById('o-payment').value,
-        idempotencyKey:  `demo-${Date.now()}`,
+        ...(couponCode ? { couponCode } : {}),
+        idempotencyKey,
       });
+      let payableOrder = order;
+      for (let attempt = 0; attempt < 20 && payableOrder.status !== 'PAYMENT_PENDING'; attempt += 1) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        payableOrder = await get(`/orders/${order.id}`);
+        if (['CANCELLED', 'FAILED'].includes(payableOrder.status)) throw new Error('Order could not reserve inventory');
+      }
+      if (payableOrder.status !== 'PAYMENT_PENDING') throw new Error('Payment preparation timed out');
+      await post('/payments', {
+        orderId: order.id,
+        method: document.getElementById('o-payment').value,
+        idempotencyKey: `payment-${idempotencyKey}`,
+      });
+      await del('/cart');
       toast('주문이 완료되었습니다! 🎉');
       await refreshCartBadge();
       navigate('/orders');

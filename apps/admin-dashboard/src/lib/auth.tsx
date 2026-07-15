@@ -31,7 +31,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const t = localStorage.getItem('admin_token');
     const u = localStorage.getItem('admin_user');
-    if (t && u) { setToken(t); setUser(JSON.parse(u)); }
+    if (t && u) {
+      try {
+        const parsed = JSON.parse(u) as AuthUser;
+        if (!parsed.id || !['admin', 'super-admin'].includes(parsed.role)) throw new Error('Invalid stored admin');
+        setToken(t);
+        setUser(parsed);
+      } catch {
+        localStorage.removeItem('admin_token');
+        localStorage.removeItem('admin_user');
+      }
+    }
     setLoading(false);
   }, []);
 

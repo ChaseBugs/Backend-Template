@@ -1,7 +1,8 @@
 {
-  "name": "@ecommerce/notification-service",
+  "name": "@ecommerce/review-service",
   "version": "1.0.0",
   "private": true,
+  "main": "./dist/index.js",
   "scripts": {
     "build": "tsc",
     "test": "pnpm build && node --test test/*.test.js",
@@ -11,25 +12,21 @@
   },
   "dependencies": {
     "@ecommerce/errors": "workspace:*",
-    "@ecommerce/shared": "workspace:*",
-    "@ecommerce/logger": "workspace:*",
     "@ecommerce/kafka-client": "workspace:*",
-    "@ecommerce/rabbitmq-client": "workspace:*",
-    "express": "^5.1.0",
-    "pg": "^8.16.0",
-    "helmet": "^8.1.0",
+    "@ecommerce/logger": "workspace:*",
+    "@ecommerce/shared": "workspace:*",
     "cors": "^2.8.5",
-    "uuid": "^11.1.0",
-    "nodemailer": "^9.0.3"
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "pg": "^8.16.0",
+    "zod": "^3.25.64"
   },
   "devDependencies": {
-    "typescript": "^5.8.3",
-    "@types/node": "^22.15.29",
-    "@types/express": "^5.0.3",
-    "@types/pg": "^8.11.14",
     "@types/cors": "^2.8.17",
-    "@types/uuid": "^10.0.0",
-    "@types/nodemailer": "^8.0.1",
-    "ts-node-dev": "^2.0.0"
+    "@types/express": "^5.0.3",
+    "@types/node": "^22.15.29",
+    "@types/pg": "^8.11.14",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.8.3"
   }
 }
