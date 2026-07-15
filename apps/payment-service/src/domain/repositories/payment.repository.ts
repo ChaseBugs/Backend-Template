@@ -121,6 +121,30 @@ export class PaymentRepository {
     return { items: rows.rows, total: parseInt(count.rows[0].count, 10) };
   }
 
+  async getAgentPayoutSummary(agentId: string, client?: PoolClient): Promise<Array<{
+    status: string; count: number; netAmount: number; grossAmount: number; commissionAmount: number;
+  }>> {
+    const db = client ?? pool;
+    const result = await db.query(
+      `SELECT status,
+              COUNT(*)::int                       AS count,
+              COALESCE(SUM(net_amount), 0)::int    AS net_amount,
+              COALESCE(SUM(gross_amount), 0)::int  AS gross_amount,
+              COALESCE(SUM(commission_amount), 0)::int AS commission_amount
+       FROM agent_settlements
+       WHERE agent_id = $1
+       GROUP BY status`,
+      [agentId],
+    );
+    return result.rows.map((row) => ({
+      status: row.status as string,
+      count: Number(row.count),
+      netAmount: Number(row.net_amount),
+      grossAmount: Number(row.gross_amount),
+      commissionAmount: Number(row.commission_amount),
+    }));
+  }
+
   private map(row: Record<string, unknown>): Payment {
     return {
       id: row.id as string,

@@ -14,6 +14,7 @@ import { ProcessPaymentUseCase } from './application/use-cases/process-payment.u
 import { PaymentMethod } from './domain/entities/payment.entity';
 import { CreatePaymentSchema, CreateRefundSchema } from './application/dtos/payment.dto';
 import { SettlementManagementUseCase } from './application/settlement-management';
+import { buildAgentPayoutSummary } from './application/agent-payout-summary';
 
 const logger = createLogger({ service: 'payment-service', level: config.logLevel });
 
@@ -189,6 +190,14 @@ async function bootstrap(): Promise<void> {
       const offset = (page - 1) * limit;
       const result = await paymentRepo.findSettlementsByAgent(req.user.agentId, limit, offset);
       res.json(successResponse(result));
+    } catch (err) { next(err); }
+  });
+
+  // Seller dashboard: payout summary bucketed by settlement status.
+  app.get('/api/payments/settlements/summary', extractUser, requirePermission(Permission.READ_AGENT_PAYMENTS), async (req: any, res: any, next: any) => {
+    try {
+      const rows = await paymentRepo.getAgentPayoutSummary(req.user.agentId);
+      res.json(successResponse(buildAgentPayoutSummary(rows)));
     } catch (err) { next(err); }
   });
 
