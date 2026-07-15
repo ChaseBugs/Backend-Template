@@ -9,6 +9,8 @@ import { config } from './config';
 import { pool } from './infrastructure/db/pool';
 import { InventoryRepository } from './domain/repositories/inventory.repository';
 import { InventoryUseCases } from './application/use-cases/inventory.use-cases';
+import { classifyInventoryHealth } from './application/inventory-health';
+import { requirePermission, Permission } from '@ecommerce/rbac';
 import { NotFoundError, ServiceUnavailableError, toHttpError } from '@ecommerce/errors';
 import { errorResponse, successResponse } from '@ecommerce/shared';
 import { z } from 'zod';
@@ -115,6 +117,14 @@ async function bootstrap(): Promise<void> {
     { name: 'kafka-producer', check: async () => kafkaProducer.isReady() },
     { name: 'kafka-consumer', check: async () => consumer.isReady() },
   ]));
+
+  // Seller dashboard: stock health across the agent's own SKUs.
+  app.get('/api/inventory/agent/summary', extractUser, requirePermission(Permission.READ_OWN_INVENTORY), async (req: any, res: any, next: any) => {
+    try {
+      const rows = await repo.getAgentInventoryHealthRows(req.user.agentId);
+      res.json(successResponse(classifyInventoryHealth(rows)));
+    } catch (err) { next(err); }
+  });
 
   app.get('/api/inventory/:productId', async (req, res, next) => {
     try {

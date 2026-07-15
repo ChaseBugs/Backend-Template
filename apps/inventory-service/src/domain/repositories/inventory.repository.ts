@@ -111,6 +111,24 @@ export class InventoryRepository {
     return { items: rows.rows.map(this.map), total: parseInt(count.rows[0].count, 10) };
   }
 
+  async getAgentInventoryHealthRows(agentId: string, client?: PoolClient): Promise<Array<{
+    productId: string; quantity: number; reservedQuantity: number; lowStockThreshold: number;
+  }>> {
+    const db = client ?? pool;
+    const result = await db.query(
+      `SELECT product_id, quantity_available AS quantity,
+              quantity_reserved AS reserved_quantity, low_stock_threshold
+       FROM inventories WHERE agent_id = $1`,
+      [agentId],
+    );
+    return result.rows.map((row) => ({
+      productId: row.product_id as string,
+      quantity: Number(row.quantity),
+      reservedQuantity: Number(row.reserved_quantity),
+      lowStockThreshold: Number(row.low_stock_threshold),
+    }));
+  }
+
   async createMovement(movement: Omit<StockMovement, 'createdAt'>, client?: PoolClient): Promise<void> {
     const db = client ?? pool;
     await db.query(
