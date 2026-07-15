@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="brand_50">#FDF4FF</color>
+    <color name="brand_100">#FAE8FF</color>
+    <color name="brand_400">#E879F9</color>
+    <color name="brand_500">#C026D3</color>
+    <color name="brand_600">#9333EA</color>
+    <color name="brand_700">#7E22CE</color>
+
+    <color name="peach_400">#FB923C</color>
+    <color name="peach_500">#F97316</color>
+
+    <color name="slate_50">#F8FAFC</color>
+    <color name="slate_100">#F1F5F9</color>
+    <color name="slate_200">#E2E8F0</color>
+    <color name="slate_300">#CBD5E1</color>
+    <color name="slate_400">#94A3B8</color>
+    <color name="slate_500">#64748B</color>
+    <color name="slate_700">#334155</color>
+    <color name="slate_800">#1E293B</color>
+
+    <color name="emerald_100">#D1FAE5</color>
+    <color name="emerald_500">#10B981</color>
+    <color name="emerald_700">#047857</color>
+
+    <color name="amber_100">#FEF3C7</color>
+    <color name="amber_700">#B45309</color>
+
+    <color name="rose_100">#FFE4E6</color>
+    <color name="rose_500">#F43F5E</color>
+    <color name="rose_600">#E11D48</color>
+    <color name="rose_700">#BE123C</color>
+
+    <color name="sky_100">#E0F2FE</color>
+    <color name="sky_700">#0369A1</color>
+
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+</resources>

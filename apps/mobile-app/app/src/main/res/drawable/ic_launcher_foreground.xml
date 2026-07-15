@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- simple shopping-bag silhouette, centered in the 108x108 safe area -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M38,42 L38,34 C38,25 44,19 54,19 C64,19 70,25 70,34 L70,42 L80,42 L84,86 C84,90 81,93 77,93 L31,93 C27,93 24,90 24,86 L28,42 Z M46,42 L62,42 L62,34 C62,29 59,27 54,27 C49,27 46,29 46,34 Z" />
+</vector>

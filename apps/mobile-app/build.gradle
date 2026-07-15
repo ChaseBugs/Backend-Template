@@ -1,0 +1,17 @@
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.5.0'
+    }
+}
+
+// Project dependency repositories are centralized in settings.gradle's
+// dependencyResolutionManagement (repositoriesMode FAIL_ON_PROJECT_REPOS) —
+// do not add an allprojects { repositories {...} } block here, it conflicts.
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}
