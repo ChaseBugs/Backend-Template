@@ -21,10 +21,10 @@ const routes = {
   },
   search: { public: ['GET /search', 'GET /search/popular', 'GET /search/autocomplete'] },
   cart: { secured: ['GET /cart', 'POST /cart/items', 'PATCH /cart/items/{productId}', 'DELETE /cart/items/{productId}', 'DELETE /cart'] },
-  orders: { secured: ['POST /orders', 'GET /orders', 'GET /orders/{id}', 'PATCH /orders/{id}/cancel'] },
-  payments: { secured: ['POST /payments', 'GET /payments/settlements', 'GET /payments/{paymentId}', 'POST /payments/{paymentId}/refund'] },
-  inventory: { secured: ['GET /inventory/{productId}', 'PUT /inventory/{productId}', 'PATCH /inventory/{productId}/adjust'] },
-  deliveries: { secured: ['GET /deliveries/order/{orderId}', 'GET /deliveries/my', 'GET /deliveries/my/pending', 'PATCH /deliveries/{id}/ship', 'PATCH /deliveries/{id}/deliver', 'PATCH /deliveries/{id}/status', 'POST /deliveries/{id}/confirm', 'POST /deliveries/{id}/return'] },
+  orders: { secured: ['POST /orders', 'GET /orders', 'GET /orders/agent/summary', 'GET /orders/{id}', 'PATCH /orders/{id}/cancel'] },
+  payments: { secured: ['POST /payments', 'GET /payments/settlements', 'GET /payments/settlements/summary', 'GET /payments/{paymentId}', 'POST /payments/{paymentId}/refund'] },
+  inventory: { secured: ['GET /inventory/agent/summary', 'GET /inventory/{productId}', 'PUT /inventory/{productId}', 'PATCH /inventory/{productId}/adjust'] },
+  deliveries: { secured: ['GET /deliveries/order/{orderId}', 'GET /deliveries/my', 'GET /deliveries/my/summary', 'GET /deliveries/my/pending', 'PATCH /deliveries/{id}/ship', 'PATCH /deliveries/{id}/deliver', 'PATCH /deliveries/{id}/status', 'POST /deliveries/{id}/confirm', 'POST /deliveries/{id}/return'] },
   notifications: { secured: ['GET /notifications', 'PATCH /notifications/{id}/read'] },
   reviews: {
     public: ['GET /reviews/product/{productId}'],
@@ -117,6 +117,10 @@ const querySchemas = {
     agentId: { type: 'string', format: 'uuid' },
     dateFrom: { type: 'string', format: 'date' },
     dateTo: { type: 'string', format: 'date' },
+  },
+  'GET /orders/agent/summary': {
+    from: { type: 'string', format: 'date-time', description: 'Window start (defaults to 30 days before "to").' },
+    to: { type: 'string', format: 'date-time', description: 'Window end (defaults to now).' },
   },
 };
 
