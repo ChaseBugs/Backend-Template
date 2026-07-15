@@ -1,19 +1,20 @@
 package com.ecommerce.eshop.admin;
 
 import android.app.AlertDialog;
-import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -23,22 +24,25 @@ import com.ecommerce.eshop.R;
 import com.ecommerce.eshop.api.ApiCallback;
 import com.ecommerce.eshop.api.ApiClient;
 import com.ecommerce.eshop.api.ApiService;
+import com.ecommerce.eshop.model.AdminProduct;
+import com.ecommerce.eshop.model.AdminProductList;
 import com.ecommerce.eshop.model.MessageResponse;
-import com.ecommerce.eshop.model.PagedList;
-import com.ecommerce.eshop.model.Product;
 import com.ecommerce.eshop.model.request.ReasonRequest;
-import com.ecommerce.eshop.product.ProductDetailActivity;
 
 import java.util.HashMap;
-import java.util.Map;
 
 public class AdminProductsFragment extends Fragment {
 
+    private static final String[] FILTER_LABELS = {"전체", "판매중", "승인 대기", "거절됨", "비활성"};
+    private static final String[] FILTER_STATUSES = {null, "ACTIVE", "PENDING_APPROVAL", "REJECTED", "INACTIVE"};
+
     private ApiService apiService;
-    private PendingProductAdapter adapter;
+    private AdminProductAdapter adapter;
     private SwipeRefreshLayout swipeRefresh;
     private ProgressBar progressBar;
     private TextView tvEmpty;
+    private LinearLayout filterChips;
+    private int selectedFilter = 0;
 
     @Nullable
     @Override
@@ -55,38 +59,65 @@ public class AdminProductsFragment extends Fragment {
         swipeRefresh = view.findViewById(R.id.swipeRefresh);
         progressBar = view.findViewById(R.id.progressBar);
         tvEmpty = view.findViewById(R.id.tvEmpty);
+        filterChips = view.findViewById(R.id.filterChips);
 
-        adapter = new PendingProductAdapter(new PendingProductAdapter.Listener() {
+        adapter = new AdminProductAdapter(new AdminProductAdapter.Listener() {
             @Override
-            public void onApprove(Product product) {
+            public void onApprove(AdminProduct product) {
                 approve(product);
             }
 
             @Override
-            public void onReject(Product product) {
+            public void onReject(AdminProduct product) {
                 promptReject(product);
-            }
-
-            @Override
-            public void onView(Product product) {
-                Intent intent = new Intent(requireContext(), ProductDetailActivity.class);
-                intent.putExtra(ProductDetailActivity.EXTRA_PRODUCT_ID, product.getProductId());
-                startActivity(intent);
             }
         });
         rvList.setLayoutManager(new LinearLayoutManager(requireContext()));
         rvList.setAdapter(adapter);
 
+        buildFilterChips();
         swipeRefresh.setOnRefreshListener(this::load);
         load();
+    }
+
+    private void buildFilterChips() {
+        filterChips.removeAllViews();
+        for (int i = 0; i < FILTER_LABELS.length; i++) {
+            int index = i;
+            TextView chip = new TextView(requireContext());
+            chip.setText(FILTER_LABELS[i]);
+            chip.setTextSize(13);
+            chip.setPadding(dp(16), dp(8), dp(16), dp(8));
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            params.setMarginEnd(dp(8));
+            chip.setLayoutParams(params);
+            chip.setOnClickListener(v -> {
+                selectedFilter = index;
+                buildFilterChips();
+                load();
+            });
+            filterChips.addView(chip);
+        }
+        applyChipStyles();
+    }
+
+    private void applyChipStyles() {
+        for (int i = 0; i < filterChips.getChildCount(); i++) {
+            TextView chip = (TextView) filterChips.getChildAt(i);
+            boolean selected = i == selectedFilter;
+            chip.setBackgroundResource(selected ? R.drawable.dash_chip_selected : R.drawable.dash_chip_unselected);
+            chip.setTextColor(ContextCompat.getColor(requireContext(), selected ? R.color.white : R.color.dash_text_secondary));
+        }
     }
 
     private void load() {
         if (!isAdded()) return;
         progressBar.setVisibility(View.VISIBLE);
-        apiService.listPendingProducts(1, 50).enqueue(new ApiCallback<PagedList<Product>>() {
+        String status = FILTER_STATUSES[selectedFilter];
+        apiService.listAdminProducts(1, 100, status, null).enqueue(new ApiCallback<AdminProductList>() {
             @Override
-            public void onSuccess(PagedList<Product> data) {
+            public void onSuccess(AdminProductList data) {
                 if (!isAdded()) return;
                 swipeRefresh.setRefreshing(false);
                 progressBar.setVisibility(View.GONE);
@@ -105,8 +136,8 @@ public class AdminProductsFragment extends Fragment {
         });
     }
 
-    private void approve(Product product) {
-        apiService.approveProduct(product.getProductId(), new HashMap<String, String>())
+    private void approve(AdminProduct product) {
+        apiService.approveProduct(product.id, new HashMap<String, String>())
                 .enqueue(new ApiCallback<MessageResponse>() {
                     @Override
                     public void onSuccess(MessageResponse data) {
@@ -123,7 +154,7 @@ public class AdminProductsFragment extends Fragment {
                 });
     }
 
-    private void promptReject(Product product) {
+    private void promptReject(AdminProduct product) {
         EditText input = new EditText(requireContext());
         input.setHint("거절 사유를 입력하세요");
         new AlertDialog.Builder(requireContext())
@@ -141,8 +172,8 @@ public class AdminProductsFragment extends Fragment {
                 .show();
     }
 
-    private void reject(Product product, String reason) {
-        apiService.rejectProduct(product.getProductId(), new ReasonRequest(reason))
+    private void reject(AdminProduct product, String reason) {
+        apiService.rejectProduct(product.id, new ReasonRequest(reason))
                 .enqueue(new ApiCallback<MessageResponse>() {
                     @Override
                     public void onSuccess(MessageResponse data) {
@@ -157,5 +188,10 @@ public class AdminProductsFragment extends Fragment {
                         Toast.makeText(requireContext(), "오류: " + message, Toast.LENGTH_SHORT).show();
                     }
                 });
+    }
+
+    private int dp(int value) {
+        float density = requireContext().getResources().getDisplayMetrics().density;
+        return Math.round(value * density);
     }
 }

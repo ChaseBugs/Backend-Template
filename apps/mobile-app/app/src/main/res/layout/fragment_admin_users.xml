@@ -9,25 +9,23 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:padding="16dp"
-        android:text="상품 관리"
+        android:text="사용자 관리"
         android:textColor="@color/dash_text"
         android:textSize="20sp"
         android:textStyle="bold" />
 
-    <HorizontalScrollView
+    <EditText
+        android:id="@+id/etSearch"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:paddingBottom="8dp"
-        android:scrollbars="none">
-
-        <LinearLayout
-            android:id="@+id/filterChips"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp" />
-    </HorizontalScrollView>
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginBottom="8dp"
+        android:background="@drawable/dash_card_bg"
+        android:hint="이름 또는 이메일 검색"
+        android:inputType="text"
+        android:padding="12dp"
+        android:textColor="@color/dash_text"
+        android:textColorHint="@color/dash_text_secondary" />
 
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
         android:id="@+id/swipeRefresh"
@@ -58,7 +56,7 @@
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
                 android:gravity="center"
-                android:text="해당 조건의 상품이 없습니다."
+                android:text="조건에 맞는 사용자가 없습니다."
                 android:textColor="@color/dash_text_secondary"
                 android:visibility="gone" />
 

@@ -4,6 +4,7 @@ import java.util.List;
 
 public class Order {
     public String id;
+    public String userId;
     public String status;
     public List<OrderItem> items;
     public double totalAmount;

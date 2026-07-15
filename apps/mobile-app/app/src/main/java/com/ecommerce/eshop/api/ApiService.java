@@ -1,8 +1,11 @@
 package com.ecommerce.eshop.api;
 
+import com.ecommerce.eshop.model.AdminProductList;
+import com.ecommerce.eshop.model.AdminUser;
 import com.ecommerce.eshop.model.AgentProfile;
 import com.ecommerce.eshop.model.ApiEnvelope;
 import com.ecommerce.eshop.model.Cart;
+import com.ecommerce.eshop.model.DashboardSummary;
 import com.ecommerce.eshop.model.LoginResponse;
 import com.ecommerce.eshop.model.MessageResponse;
 import com.ecommerce.eshop.model.Order;
@@ -16,7 +19,9 @@ import com.ecommerce.eshop.model.request.CreateProductRequest;
 import com.ecommerce.eshop.model.request.LoginRequest;
 import com.ecommerce.eshop.model.request.ReasonRequest;
 import com.ecommerce.eshop.model.request.RegisterRequest;
+import com.ecommerce.eshop.model.request.UpdateProductRequest;
 import com.ecommerce.eshop.model.request.UpdateQuantityRequest;
+import com.ecommerce.eshop.model.request.UpdateUserStatusRequest;
 
 import java.util.Map;
 
@@ -51,6 +56,9 @@ public interface ApiService {
 
     @POST("products")
     Call<ApiEnvelope<Map<String, String>>> createProduct(@Body CreateProductRequest body);
+
+    @PATCH("products/{id}")
+    Call<ApiEnvelope<MessageResponse>> updateProduct(@Path("id") String id, @Body UpdateProductRequest body);
 
     @DELETE("products/{id}")
     Call<ApiEnvelope<MessageResponse>> deleteProduct(@Path("id") String id);
@@ -99,4 +107,18 @@ public interface ApiService {
 
     @PATCH("agents/{id}/reject")
     Call<ApiEnvelope<MessageResponse>> rejectAgent(@Path("id") String id, @Body ReasonRequest body);
+
+    @GET("admin/dashboard")
+    Call<ApiEnvelope<DashboardSummary>> getAdminDashboard();
+
+    @GET("admin/users")
+    Call<ApiEnvelope<PagedList<AdminUser>>> listAdminUsers(@Query("page") int page, @Query("limit") int limit);
+
+    @PATCH("admin/users/{userId}/status")
+    Call<ApiEnvelope<MessageResponse>> updateUserStatus(@Path("userId") String userId, @Body UpdateUserStatusRequest body);
+
+    @GET("admin/products")
+    Call<ApiEnvelope<AdminProductList>> listAdminProducts(
+            @Query("page") int page, @Query("limit") int limit,
+            @Query("status") String status, @Query("search") String search);
 }

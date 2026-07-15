@@ -36,4 +36,23 @@
 
     <color name="white">#FFFFFF</color>
     <color name="black">#000000</color>
+
+    <!-- Dashboard (Agent/Admin) dark palette — imported from claude.ai/design
+         project "eCommerce dashboard design". Kept separate from the brand_*/slate_*
+         shopper palette above so the light shopper screens are unaffected. -->
+    <color name="dash_bg">#161826</color>
+    <color name="dash_surface">#232532</color>
+    <color name="dash_text">#E9E9ED</color>
+    <color name="dash_text_secondary">#A6A8B8</color>
+    <color name="dash_accent">#9184D9</color>
+    <color name="dash_accent_100">#F5F4FF</color>
+    <color name="dash_accent_300">#D2CEFD</color>
+    <color name="dash_accent_800">#423A6A</color>
+    <color name="dash_accent_900">#2B2741</color>
+    <color name="dash_neutral_100">#F3F5FE</color>
+    <color name="dash_neutral_800">#3F424D</color>
+    <color name="dash_divider">#29E9E9ED</color>
+    <color name="dash_success">#4ADE80</color>
+    <color name="dash_warning">#FBBF24</color>
+    <color name="dash_danger">#F87171</color>
 </resources>

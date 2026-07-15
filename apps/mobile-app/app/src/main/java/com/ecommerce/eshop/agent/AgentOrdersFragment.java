@@ -1,12 +1,9 @@
 package com.ecommerce.eshop.agent;
 
-import android.app.AlertDialog;
-import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -24,32 +21,31 @@ import com.ecommerce.eshop.R;
 import com.ecommerce.eshop.api.ApiCallback;
 import com.ecommerce.eshop.api.ApiClient;
 import com.ecommerce.eshop.api.ApiService;
-import com.ecommerce.eshop.model.MessageResponse;
+import com.ecommerce.eshop.model.Order;
 import com.ecommerce.eshop.model.PagedList;
-import com.ecommerce.eshop.model.Product;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class AgentProductsFragment extends Fragment {
+public class AgentOrdersFragment extends Fragment {
 
-    private static final String[] FILTER_LABELS = {"전체", "판매중", "승인 대기", "거절됨"};
-    private static final String[] FILTER_STATUSES = {null, "ACTIVE", "PENDING_APPROVAL", "REJECTED"};
+    private static final String[] FILTER_LABELS = {"전체", "결제완료", "배송중", "완료", "취소"};
+    private static final String[] FILTER_STATUSES = {null, "PAID", "SHIPPED", "COMPLETED", "CANCELLED"};
 
     private ApiService apiService;
-    private AgentProductAdapter adapter;
+    private AgentOrderAdapter adapter;
     private SwipeRefreshLayout swipeRefresh;
     private ProgressBar progressBar;
     private TextView tvEmpty;
     private LinearLayout filterChips;
 
-    private final List<Product> allProducts = new ArrayList<>();
+    private final List<Order> allOrders = new ArrayList<>();
     private int selectedFilter = 0;
 
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        return inflater.inflate(R.layout.fragment_agent_products, container, false);
+        return inflater.inflate(R.layout.fragment_agent_orders, container, false);
     }
 
     @Override
@@ -57,40 +53,19 @@ public class AgentProductsFragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
         apiService = ApiClient.getApiService(requireContext());
 
-        RecyclerView rvMyProducts = view.findViewById(R.id.rvMyProducts);
+        RecyclerView rvOrders = view.findViewById(R.id.rvOrders);
         swipeRefresh = view.findViewById(R.id.swipeRefresh);
         progressBar = view.findViewById(R.id.progressBar);
         tvEmpty = view.findViewById(R.id.tvEmpty);
         filterChips = view.findViewById(R.id.filterChips);
-        Button btnAddProduct = view.findViewById(R.id.btnAddProduct);
 
-        adapter = new AgentProductAdapter(new AgentProductAdapter.Listener() {
-            @Override
-            public void onView(Product product) {
-                Intent intent = new Intent(requireContext(), AgentProductEditActivity.class);
-                intent.putExtra(AgentProductEditActivity.EXTRA_PRODUCT_ID, product.getProductId());
-                startActivity(intent);
-            }
-
-            @Override
-            public void onDelete(Product product) {
-                confirmDelete(product);
-            }
-        });
-        rvMyProducts.setLayoutManager(new LinearLayoutManager(requireContext()));
-        rvMyProducts.setAdapter(adapter);
+        adapter = new AgentOrderAdapter();
+        rvOrders.setLayoutManager(new LinearLayoutManager(requireContext()));
+        rvOrders.setAdapter(adapter);
 
         buildFilterChips();
-        swipeRefresh.setOnRefreshListener(this::loadMyProducts);
-        btnAddProduct.setOnClickListener(v -> startActivity(new Intent(requireContext(), AddProductActivity.class)));
-
-        loadMyProducts();
-    }
-
-    @Override
-    public void onResume() {
-        super.onResume();
-        loadMyProducts();
+        swipeRefresh.setOnRefreshListener(this::load);
+        load();
     }
 
     private void buildFilterChips() {
@@ -124,17 +99,17 @@ public class AgentProductsFragment extends Fragment {
         }
     }
 
-    private void loadMyProducts() {
+    private void load() {
         if (!isAdded()) return;
         progressBar.setVisibility(View.VISIBLE);
-        apiService.listMyProducts(1, 100).enqueue(new ApiCallback<PagedList<Product>>() {
+        apiService.listOrders(1, 50).enqueue(new ApiCallback<PagedList<Order>>() {
             @Override
-            public void onSuccess(PagedList<Product> data) {
+            public void onSuccess(PagedList<Order> data) {
                 if (!isAdded()) return;
                 swipeRefresh.setRefreshing(false);
                 progressBar.setVisibility(View.GONE);
-                allProducts.clear();
-                if (data != null && data.data != null) allProducts.addAll(data.data);
+                allOrders.clear();
+                if (data != null && data.data != null) allOrders.addAll(data.data);
                 renderFiltered();
             }
 
@@ -150,37 +125,12 @@ public class AgentProductsFragment extends Fragment {
 
     private void renderFiltered() {
         String statusFilter = FILTER_STATUSES[selectedFilter];
-        List<Product> filtered = new ArrayList<>();
-        for (Product product : allProducts) {
-            if (statusFilter == null || statusFilter.equals(product.status)) filtered.add(product);
+        List<Order> filtered = new ArrayList<>();
+        for (Order order : allOrders) {
+            if (statusFilter == null || statusFilter.equals(order.status)) filtered.add(order);
         }
         tvEmpty.setVisibility(filtered.isEmpty() ? View.VISIBLE : View.GONE);
-        adapter.setProducts(filtered);
-    }
-
-    private void confirmDelete(Product product) {
-        new AlertDialog.Builder(requireContext())
-                .setMessage(product.name + " 상품을 삭제하시겠습니까?")
-                .setPositiveButton("삭제", (dialog, which) -> deleteProduct(product))
-                .setNegativeButton("취소", null)
-                .show();
-    }
-
-    private void deleteProduct(Product product) {
-        apiService.deleteProduct(product.getProductId()).enqueue(new ApiCallback<MessageResponse>() {
-            @Override
-            public void onSuccess(MessageResponse data) {
-                if (!isAdded()) return;
-                Toast.makeText(requireContext(), "삭제되었습니다.", Toast.LENGTH_SHORT).show();
-                loadMyProducts();
-            }
-
-            @Override
-            public void onError(String message) {
-                if (!isAdded()) return;
-                Toast.makeText(requireContext(), "오류: " + message, Toast.LENGTH_SHORT).show();
-            }
-        });
+        adapter.setOrders(filtered);
     }
 
     private int dp(int value) {

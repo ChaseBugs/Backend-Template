@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/nav_agent_home"
+        android:icon="@drawable/ic_nav_dot"
+        android:title="홈" />
+    <item
+        android:id="@+id/nav_agent_products"
+        android:icon="@drawable/ic_nav_dot"
+        android:title="상품" />
+    <item
+        android:id="@+id/nav_agent_orders"
+        android:icon="@drawable/ic_nav_dot"
+        android:title="주문" />
+    <item
+        android:id="@+id/nav_agent_earnings"
+        android:icon="@drawable/ic_nav_dot"
+        android:title="수익" />
+</menu>

@@ -9,7 +9,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:padding="16dp"
-        android:text="상품 관리"
+        android:text="주문 관리"
         android:textColor="@color/dash_text"
         android:textSize="20sp"
         android:textStyle="bold" />
@@ -40,7 +40,7 @@
             android:layout_height="match_parent">
 
             <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rvList"
+                android:id="@+id/rvOrders"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:clipToPadding="false"
@@ -58,7 +58,7 @@
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
                 android:gravity="center"
-                android:text="해당 조건의 상품이 없습니다."
+                android:text="📦\n해당 상태의 주문이 없습니다."
                 android:textColor="@color/dash_text_secondary"
                 android:visibility="gone" />
 

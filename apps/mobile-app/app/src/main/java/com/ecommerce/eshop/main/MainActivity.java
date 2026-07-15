@@ -1,16 +1,24 @@
 package com.ecommerce.eshop.main;
 
 import android.content.Intent;
+import android.content.res.ColorStateList;
 import android.os.Bundle;
-import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 
 import com.ecommerce.eshop.R;
-import com.ecommerce.eshop.admin.AdminFragment;
+import com.ecommerce.eshop.admin.AdminAgentsFragment;
+import com.ecommerce.eshop.admin.AdminHomeFragment;
+import com.ecommerce.eshop.admin.AdminProductsFragment;
+import com.ecommerce.eshop.admin.AdminUsersFragment;
+import com.ecommerce.eshop.agent.AgentEarningsFragment;
+import com.ecommerce.eshop.agent.AgentHomeFragment;
+import com.ecommerce.eshop.agent.AgentOrdersFragment;
 import com.ecommerce.eshop.agent.AgentProductsFragment;
 import com.ecommerce.eshop.auth.LoginActivity;
 import com.ecommerce.eshop.cart.CartFragment;
@@ -22,12 +30,16 @@ import com.ecommerce.eshop.search.SearchFragment;
 import com.ecommerce.eshop.session.SessionManager;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
-/** Single-activity shell hosting the bottom-nav tabs, role-gated in setupMenuForRole(). */
+/**
+ * Single-activity shell. Each role gets its own bottom-nav menu and tab set —
+ * agent/admin use the dark dashboard design, user keeps the light shopper theme.
+ */
 public class MainActivity extends AppCompatActivity {
 
     public static final String EXTRA_TAB = "extra_tab";
 
     private SessionManager sessionManager;
+    private User user;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,9 +51,11 @@ public class MainActivity extends AppCompatActivity {
             goToLogin();
             return;
         }
+        user = sessionManager.getUser();
 
         BottomNavigationView bottomNav = findViewById(R.id.bottomNav);
-        setupMenuForRole(bottomNav);
+        View fragmentContainer = findViewById(R.id.fragmentContainer);
+        setupNavForRole(bottomNav, fragmentContainer);
 
         bottomNav.setOnItemSelectedListener(this::onNavItemSelected);
 
@@ -54,11 +68,14 @@ public class MainActivity extends AppCompatActivity {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
-        BottomNavigationView bottomNav = findViewById(R.id.bottomNav);
-        applyRequestedTab(bottomNav, intent);
+        if (user != null && user.isUser()) {
+            BottomNavigationView bottomNav = findViewById(R.id.bottomNav);
+            applyRequestedTab(bottomNav, intent);
+        }
     }
 
     private void applyRequestedTab(BottomNavigationView bottomNav, Intent intent) {
+        if (user == null || !user.isUser()) return;
         String requestedTab = intent.getStringExtra(EXTRA_TAB);
         if ("cart".equals(requestedTab)) {
             bottomNav.setSelectedItemId(R.id.nav_cart);
@@ -69,13 +86,32 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void setupMenuForRole(BottomNavigationView bottomNav) {
-        User user = sessionManager.getUser();
-        Menu menu = bottomNav.getMenu();
-        MenuItem agentItem = menu.findItem(R.id.nav_agent);
-        MenuItem adminItem = menu.findItem(R.id.nav_admin);
-        if (agentItem != null) agentItem.setVisible(user != null && user.isAgent());
-        if (adminItem != null) adminItem.setVisible(user != null && user.isAdmin());
+    private void setupNavForRole(BottomNavigationView bottomNav, View fragmentContainer) {
+        if (user != null && user.isAgent()) {
+            bottomNav.getMenu().clear();
+            getMenuInflater().inflate(R.menu.bottom_nav_menu_agent, bottomNav.getMenu());
+            applyDashboardChrome(bottomNav, fragmentContainer);
+            bottomNav.setSelectedItemId(R.id.nav_agent_home);
+            showFragment(new AgentHomeFragment());
+        } else if (user != null && user.isAdmin()) {
+            bottomNav.getMenu().clear();
+            getMenuInflater().inflate(R.menu.bottom_nav_menu_admin, bottomNav.getMenu());
+            applyDashboardChrome(bottomNav, fragmentContainer);
+            bottomNav.setSelectedItemId(R.id.nav_admin_home);
+            showFragment(new AdminHomeFragment());
+        } else {
+            bottomNav.getMenu().clear();
+            getMenuInflater().inflate(R.menu.bottom_nav_menu_user, bottomNav.getMenu());
+            showFragment(new HomeFragment());
+        }
+    }
+
+    private void applyDashboardChrome(BottomNavigationView bottomNav, View fragmentContainer) {
+        bottomNav.setBackgroundColor(ContextCompat.getColor(this, R.color.dash_surface));
+        ColorStateList tint = ContextCompat.getColorStateList(this, R.color.dash_bottom_nav_tint);
+        bottomNav.setItemIconTintList(tint);
+        bottomNav.setItemTextColor(tint);
+        fragmentContainer.setBackgroundColor(ContextCompat.getColor(this, R.color.dash_bg));
     }
 
     private boolean onNavItemSelected(@NonNull MenuItem item) {
@@ -92,14 +128,32 @@ public class MainActivity extends AppCompatActivity {
         } else if (id == R.id.nav_orders) {
             showFragment(new OrdersFragment());
             return true;
-        } else if (id == R.id.nav_agent) {
-            showFragment(new AgentProductsFragment());
-            return true;
-        } else if (id == R.id.nav_admin) {
-            showFragment(new AdminFragment());
-            return true;
         } else if (id == R.id.nav_profile) {
             showFragment(new ProfileFragment());
+            return true;
+        } else if (id == R.id.nav_agent_home) {
+            showFragment(new AgentHomeFragment());
+            return true;
+        } else if (id == R.id.nav_agent_products) {
+            showFragment(new AgentProductsFragment());
+            return true;
+        } else if (id == R.id.nav_agent_orders) {
+            showFragment(new AgentOrdersFragment());
+            return true;
+        } else if (id == R.id.nav_agent_earnings) {
+            showFragment(new AgentEarningsFragment());
+            return true;
+        } else if (id == R.id.nav_admin_home) {
+            showFragment(new AdminHomeFragment());
+            return true;
+        } else if (id == R.id.nav_admin_agents) {
+            showFragment(new AdminAgentsFragment());
+            return true;
+        } else if (id == R.id.nav_admin_products) {
+            showFragment(new AdminProductsFragment());
+            return true;
+        } else if (id == R.id.nav_admin_users) {
+            showFragment(new AdminUsersFragment());
             return true;
         }
         return false;

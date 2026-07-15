@@ -38,11 +38,20 @@
                 android:background="@drawable/dash_chip_selected"
                 android:paddingHorizontal="10dp"
                 android:paddingVertical="4dp"
-                android:text="PENDING_APPROVAL"
+                android:text="ACTIVE"
                 android:textColor="@color/white"
                 android:textSize="11sp"
                 android:textStyle="bold" />
         </LinearLayout>
+
+        <TextView
+            android:id="@+id/tvAgentName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="판매: —"
+            android:textColor="@color/dash_text_secondary"
+            android:textSize="12sp" />
 
         <TextView
             android:id="@+id/tvPrice"
@@ -54,15 +63,16 @@
             android:textStyle="bold" />
 
         <TextView
-            android:id="@+id/tvRejectionReason"
+            android:id="@+id/tvStock"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:textColor="@color/dash_danger"
-            android:textSize="12sp"
-            android:visibility="gone" />
+            android:layout_marginTop="2dp"
+            android:text="재고: —"
+            android:textColor="@color/dash_warning"
+            android:textSize="12sp" />
 
         <LinearLayout
+            android:id="@+id/moderationActions"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
@@ -70,22 +80,23 @@
             android:orientation="horizontal">
 
             <Button
-                android:id="@+id/btnView"
-                style="?android:attr/borderlessButtonStyle"
+                android:id="@+id/btnApprove"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="수정"
-                android:textColor="@color/dash_accent"
-                android:textSize="12sp" />
+                android:backgroundTint="@color/dash_success"
+                android:text="승인"
+                android:textColor="@color/white"
+                android:textSize="13sp" />
 
             <Button
-                android:id="@+id/btnDelete"
-                style="?android:attr/borderlessButtonStyle"
+                android:id="@+id/btnReject"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="삭제"
-                android:textColor="@color/dash_danger"
-                android:textSize="12sp" />
+                android:layout_marginStart="8dp"
+                android:backgroundTint="@color/dash_danger"
+                android:text="거절"
+                android:textColor="@color/white"
+                android:textSize="13sp" />
         </LinearLayout>
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

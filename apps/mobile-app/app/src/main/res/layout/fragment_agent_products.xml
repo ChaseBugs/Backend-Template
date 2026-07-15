@@ -1,39 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@color/dash_bg">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical">
 
-        <LinearLayout
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@color/brand_600"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:padding="16dp">
+            android:padding="16dp"
+            android:text="내 상품 관리"
+            android:textColor="@color/dash_text"
+            android:textSize="20sp"
+            android:textStyle="bold" />
 
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="내 상품 관리"
-                android:textColor="@color/white"
-                android:textSize="18sp"
-                android:textStyle="bold" />
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingBottom="8dp"
+            android:scrollbars="none">
 
-            <Button
-                android:id="@+id/btnAddProduct"
+            <LinearLayout
+                android:id="@+id/filterChips"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:backgroundTint="@color/peach_500"
-                android:text="+ 상품 등록"
-                android:textColor="@color/white"
-                android:textSize="12sp" />
-        </LinearLayout>
+                android:orientation="horizontal"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp" />
+        </HorizontalScrollView>
 
         <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
             android:id="@+id/swipeRefresh"
@@ -65,10 +63,23 @@
                     android:layout_gravity="center"
                     android:gravity="center"
                     android:text="📦\n등록된 상품이 없습니다."
-                    android:textColor="@color/slate_400"
+                    android:textColor="@color/dash_text_secondary"
                     android:visibility="gone" />
 
             </FrameLayout>
         </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
     </LinearLayout>
+
+    <Button
+        android:id="@+id/btnAddProduct"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="20dp"
+        android:backgroundTint="@color/dash_accent"
+        android:paddingHorizontal="20dp"
+        android:paddingVertical="12dp"
+        android:text="+ 상품 등록"
+        android:textColor="@color/white" />
+
 </FrameLayout>
