@@ -10,6 +10,7 @@ CREATE SCHEMA IF NOT EXISTS delivery;
 CREATE SCHEMA IF NOT EXISTS notification;
 CREATE SCHEMA IF NOT EXISTS admin;
 CREATE SCHEMA IF NOT EXISTS review;
+CREATE SCHEMA IF NOT EXISTS ads;
 
 -- ============================================================
 -- 2. Dedicated service users
@@ -24,6 +25,7 @@ DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'notification_
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'admin_svc') THEN CREATE USER admin_svc WITH PASSWORD 'admin_pass' CONNECTION LIMIT 10; END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sync_worker') THEN CREATE USER sync_worker WITH PASSWORD 'sync_pass' CONNECTION LIMIT 10; END IF; END $$;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'review_svc') THEN CREATE USER review_svc WITH PASSWORD 'review_pass' CONNECTION LIMIT 20; END IF; END $$;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'ads_svc') THEN CREATE USER ads_svc WITH PASSWORD 'ads_pass' CONNECTION LIMIT 20; END IF; END $$;
 
 -- ============================================================
 -- 3. Schema-level grants
@@ -68,8 +70,13 @@ GRANT USAGE, CREATE ON SCHEMA review TO review_svc;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA review TO review_svc;
 ALTER DEFAULT PRIVILEGES IN SCHEMA review GRANT ALL ON TABLES TO review_svc;
 
+-- ads_svc owns ads schema
+GRANT USAGE, CREATE ON SCHEMA ads TO ads_svc;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA ads TO ads_svc;
+ALTER DEFAULT PRIVILEGES IN SCHEMA ads GRANT ALL ON TABLES TO ads_svc;
+
 -- admin_svc has SELECT across all schemas
-GRANT USAGE ON SCHEMA auth, product, inventory, "order", payment, delivery, notification, review, admin TO admin_svc;
+GRANT USAGE ON SCHEMA auth, product, inventory, "order", payment, delivery, notification, review, ads, admin TO admin_svc;
 GRANT SELECT ON ALL TABLES IN SCHEMA auth TO admin_svc;
 GRANT SELECT ON ALL TABLES IN SCHEMA product TO admin_svc;
 GRANT SELECT ON ALL TABLES IN SCHEMA inventory TO admin_svc;
@@ -78,12 +85,13 @@ GRANT SELECT ON ALL TABLES IN SCHEMA payment TO admin_svc;
 GRANT SELECT ON ALL TABLES IN SCHEMA delivery TO admin_svc;
 GRANT SELECT ON ALL TABLES IN SCHEMA notification TO admin_svc;
 GRANT SELECT ON ALL TABLES IN SCHEMA review TO admin_svc;
+GRANT SELECT ON ALL TABLES IN SCHEMA ads TO admin_svc;
 GRANT USAGE, CREATE ON SCHEMA admin TO admin_svc;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA admin TO admin_svc;
 ALTER DEFAULT PRIVILEGES IN SCHEMA admin GRANT ALL ON TABLES TO admin_svc;
 
 -- sync_worker has SELECT across all schemas
-GRANT USAGE ON SCHEMA auth, product, inventory, "order", payment, delivery, notification, review, admin TO sync_worker;
+GRANT USAGE ON SCHEMA auth, product, inventory, "order", payment, delivery, notification, review, ads, admin TO sync_worker;
 GRANT SELECT ON ALL TABLES IN SCHEMA auth TO sync_worker;
 GRANT SELECT ON ALL TABLES IN SCHEMA product TO sync_worker;
 GRANT SELECT ON ALL TABLES IN SCHEMA inventory TO sync_worker;
@@ -92,3 +100,4 @@ GRANT SELECT ON ALL TABLES IN SCHEMA payment TO sync_worker;
 GRANT SELECT ON ALL TABLES IN SCHEMA delivery TO sync_worker;
 GRANT SELECT ON ALL TABLES IN SCHEMA notification TO sync_worker;
 GRANT SELECT ON ALL TABLES IN SCHEMA review TO sync_worker;
+GRANT SELECT ON ALL TABLES IN SCHEMA ads TO sync_worker;

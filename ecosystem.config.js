@@ -11,6 +11,7 @@ const DATABASE_ENV_BY_SERVICE = {
   'notification-service': 'NOTIFICATION_DATABASE_URL',
   'delivery-service': 'DELIVERY_DATABASE_URL',
   'review-service': 'REVIEW_DATABASE_URL',
+  'ads-service': 'ADS_DATABASE_URL',
 };
 
 function requiredEnvironment(name, minimumLength = 1) {
@@ -117,6 +118,12 @@ module.exports = {
 
     // Review service — verified-purchase reviews and rating aggregates
     service('review-service', 3011),
+
+    // Ads service — sponsored-placement campaigns, low traffic
+    {
+      ...service('ads-service', 3013),
+      instances: 2,
+    },
 
     // Sync worker — Kafka consumer, CQRS read model sync
     {

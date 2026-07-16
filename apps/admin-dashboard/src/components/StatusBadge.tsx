@@ -21,6 +21,7 @@ const MAP: Record<string, string> = {
   REFUNDED:             'bg-purple-100 text-purple-700',
   INACTIVE:             'bg-slate-100 text-slate-600',
   DRAFT:                'bg-slate-100 text-slate-600',
+  PAUSED:               'bg-slate-100 text-slate-600',
   REQUESTED:            'bg-yellow-100 text-yellow-700',
   ACCEPTED:             'bg-blue-100 text-blue-700',
   // roles

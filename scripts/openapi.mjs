@@ -16,7 +16,7 @@ const routeSources = [
   ['apps/auth-service/src/infrastructure/http/routes/agent.routes.ts', '/api/v1/agents', 'router'],
   ['apps/auth-service/src/infrastructure/http/routes/user.routes.ts', '/api/v1/users', 'router'],
   ['apps/product-service/src/infrastructure/http/routes/product.routes.ts', '/api/v1/products', 'router'],
-  ...['search', 'review', 'notification', 'admin', 'cart', 'order', 'payment', 'delivery', 'inventory'].map((service) => [`apps/${service}-service/src/index.ts`, '', 'app']),
+  ...['search', 'review', 'notification', 'admin', 'cart', 'order', 'payment', 'delivery', 'inventory', 'ads'].map((service) => [`apps/${service}-service/src/index.ts`, '', 'app']),
 ];
 
 function normalizeRoutePath(prefix, rawPath) {
@@ -115,6 +115,12 @@ const routes = {
     'PATCH /admin/settlement-adjustments/{adjustmentId}/status', 'PATCH /admin/orders/{orderId}/status',
     'POST /admin/payments/{paymentId}/refund', 'GET /admin/audit-logs',
   ] },
+  ads: { secured: [
+    'POST /ads/campaigns', 'GET /ads/campaigns/my', 'GET /ads/campaigns', 'GET /ads/campaigns/{id}',
+    'PATCH /ads/campaigns/{id}/approve', 'PATCH /ads/campaigns/{id}/reject',
+    'PATCH /ads/campaigns/{id}/pause', 'PATCH /ads/campaigns/{id}/resume',
+    'POST /ads/campaigns/{id}/click',
+  ] },
 };
 
 const requestSchemas = {
@@ -165,17 +171,21 @@ const requestSchemas = {
   'PATCH /admin/settlement-adjustments/{adjustmentId}/status': { required: ['status'], properties: { status: { type: 'string', enum: ['PROCESSING', 'COMPLETED', 'CANCELLED'] } } },
   'PATCH /admin/orders/{orderId}/status': { required: ['status'], properties: { status: { type: 'string', enum: ['PENDING', 'PAYMENT_PENDING', 'PAID', 'PROCESSING', 'PARTIALLY_SHIPPED', 'SHIPPED', 'COMPLETED', 'CANCELLED', 'REFUNDED'] } } },
   'POST /admin/payments/{paymentId}/refund': { required: ['refundAmount', 'reason', 'idempotencyKey'], properties: { refundAmount: { type: 'integer', minimum: 1 }, reason: { type: 'string', minLength: 1, maxLength: 500 }, idempotencyKey: { type: 'string', minLength: 1, maxLength: 200 } } },
+  'POST /ads/campaigns': { required: ['productId', 'costPerClick', 'dailyBudget', 'totalBudget'], properties: { productId: { type: 'string', format: 'uuid' }, costPerClick: { type: 'integer', exclusiveMinimum: 0, description: 'KRW charged per click' }, dailyBudget: { type: 'integer', exclusiveMinimum: 0 }, totalBudget: { type: 'integer', exclusiveMinimum: 0, description: 'Must be >= dailyBudget' } } },
+  'PATCH /ads/campaigns/{id}/reject': { required: ['reason'], properties: { reason: { type: 'string', minLength: 1, maxLength: 500 } } },
 };
 
 const bodylessMutations = new Set([
   'PATCH /users/{userId}/deactivate', 'PATCH /users/{userId}/activate',
   'PATCH /products/{id}/approve', 'PATCH /deliveries/{id}/deliver',
   'POST /deliveries/{id}/confirm', 'PATCH /notifications/{id}/read',
+  'PATCH /ads/campaigns/{id}/approve', 'PATCH /ads/campaigns/{id}/pause',
+  'PATCH /ads/campaigns/{id}/resume', 'POST /ads/campaigns/{id}/click',
 ]);
 const optionalBodies = new Set(['PATCH /agents/{agentId}/approve']);
 const createdRoutes = new Set([
   'POST /auth/register', 'POST /auth/admin/create', 'POST /products',
-  'POST /orders', 'POST /payments', 'POST /reviews',
+  'POST /orders', 'POST /payments', 'POST /reviews', 'POST /ads/campaigns',
 ]);
 const querySchemas = {
   'GET /products/catalog/search': {
@@ -197,6 +207,12 @@ const querySchemas = {
   'GET /orders/agent/summary': {
     from: { type: 'string', format: 'date-time', description: 'Window start (defaults to 30 days before "to").' },
     to: { type: 'string', format: 'date-time', description: 'Window end (defaults to now).' },
+  },
+  'GET /ads/campaigns/my': {
+    status: { type: 'string', enum: ['PENDING_APPROVAL', 'ACTIVE', 'PAUSED', 'REJECTED', 'COMPLETED'] },
+  },
+  'GET /ads/campaigns': {
+    status: { type: 'string', enum: ['PENDING_APPROVAL', 'ACTIVE', 'PAUSED', 'REJECTED', 'COMPLETED'] },
   },
 };
 

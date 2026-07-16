@@ -46,5 +46,9 @@
             android:name=".agent.AgentProductEditActivity"
             android:exported="false" />
 
+        <activity
+            android:name=".agent.AgentAdCreateActivity"
+            android:exported="false" />
+
     </application>
 </manifest>

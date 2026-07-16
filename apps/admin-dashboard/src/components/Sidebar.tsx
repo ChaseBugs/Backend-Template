@@ -11,6 +11,7 @@ const NAV_COMMON = [
   { href: '/dashboard/products',    icon: '📦', label: '상품 승인' },
   { href: '/dashboard/orders',      icon: '🛒', label: '주문 관리' },
   { href: '/dashboard/deliveries',  icon: '🚚', label: '배송 현황' },
+  { href: '/dashboard/ads',         icon: '📣', label: '광고 관리' },
   { href: '/dashboard/analytics',   icon: '📊', label: '통계 분석' },
 ];
 

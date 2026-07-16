@@ -40,6 +40,9 @@ export function createRoutes(logger: Logger): Router {
   // Review reads are public; write endpoints enforce verified identity downstream.
   router.use('/reviews', createServiceProxy(config.services.review, { '^/reviews': '/api/reviews' }, logger));
 
+  // Ads service — sponsored-placement campaigns; every route requires auth, role/ownership enforced downstream.
+  router.use('/ads', requireAuth, createServiceProxy(config.services.ads, { '^/ads': '/api/ads' }, logger));
+
   // Agents sub-routes (served by auth-service)
   router.use('/agents', createServiceProxy(config.services.auth, { '^/agents': '/api/agents' }, logger));
   router.use('/users', requireAuth, createServiceProxy(config.services.auth, { '^/users': '/api/users' }, logger));

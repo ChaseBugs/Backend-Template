@@ -211,3 +211,25 @@ export interface SettlementAdjustment {
   processed_at: string | null;
   created_at: string;
 }
+
+// Ads service returns its own DTOs (not raw pg rows), so this one is camelCase
+// unlike the snake_case types above that mirror admin-service's direct SQL reads.
+export interface AdCampaign {
+  id: string;
+  agentId: string;
+  productId: string;
+  costPerClick: number;
+  dailyBudget: number;
+  totalBudget: number;
+  spentTotal: number;
+  spentToday: number;
+  spendDate: string;
+  impressionCount: number;
+  clickCount: number;
+  status: 'PENDING_APPROVAL' | 'ACTIVE' | 'PAUSED' | 'REJECTED' | 'COMPLETED';
+  rejectionReason: string | null;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}

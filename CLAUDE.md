@@ -60,6 +60,7 @@ ecommerce-backend/
 │   ├── admin-service/        # 어드민 전용: 통계, 감사 로그, 정산 관리, 배송 현황
 │   ├── notification-service/ # 알림: RabbitMQ + Kafka Consumer, 내부 SMTP
 │   ├── delivery-service/     # 배송: 에이전트별 배송 그룹, 운송장, 반품 처리
+│   ├── ads-service/          # 광고: 스폰서 상품(CPC) 캠페인, 승인 워크플로우, 노출·클릭 집계
 │   └── sync-worker/          # CQRS Read DB 동기화: Kafka Consumer
 │
 ├── packages/
@@ -233,6 +234,9 @@ Kafka 토픽은 이벤트 타입별로 세분화되어 있다 (`packages/shared/
 | Admin Service | 3008 |
 | Notification Service | 3009 |
 | Delivery Service | 3010 |
+| Review Service | 3011 |
+| Sync Worker | 3012 |
+| Ads Service | 3013 |
 | PostgreSQL | 5432 |
 | MongoDB | 27017 |
 | Redis (Cluster) | 7001~7006 |

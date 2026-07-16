@@ -60,6 +60,10 @@ export enum Permission {
   READ_REPORTS = 'read:reports',
   READ_SETTLEMENTS = 'read:settlements',
   MANAGE_SETTLEMENTS = 'manage:settlements',
+
+  // Ad campaign management (sponsored product placement)
+  READ_ALL_AD_CAMPAIGNS = 'read:all_ad_campaigns',
+  MODERATE_AD_CAMPAIGN = 'moderate:ad_campaign',
 }
 
 const rolePermissions: Record<UserRole, Permission[]> = {
@@ -86,6 +90,8 @@ const rolePermissions: Record<UserRole, Permission[]> = {
     Permission.ISSUE_REFUND,
     Permission.READ_DASHBOARD,
     Permission.READ_REPORTS,
+    Permission.READ_ALL_AD_CAMPAIGNS,
+    Permission.MODERATE_AD_CAMPAIGN,
   ],
 
   [UserRole.AGENT]: [

@@ -1,5 +1,6 @@
 package com.ecommerce.eshop.api;
 
+import com.ecommerce.eshop.model.AdCampaign;
 import com.ecommerce.eshop.model.AdminProductList;
 import com.ecommerce.eshop.model.AdminUser;
 import com.ecommerce.eshop.model.AgentFulfillmentSummary;
@@ -19,6 +20,7 @@ import com.ecommerce.eshop.model.Product;
 import com.ecommerce.eshop.model.SearchResult;
 import com.ecommerce.eshop.model.request.AddCartItemRequest;
 import com.ecommerce.eshop.model.request.ApproveAgentRequest;
+import com.ecommerce.eshop.model.request.CreateAdCampaignRequest;
 import com.ecommerce.eshop.model.request.CreateOrderRequest;
 import com.ecommerce.eshop.model.request.CreateProductRequest;
 import com.ecommerce.eshop.model.request.LoginRequest;
@@ -141,4 +143,17 @@ public interface ApiService {
 
     @GET("products/catalog/variants/{variantId}/buybox")
     Call<ApiEnvelope<BuyBoxView>> getBuyBox(@Path("variantId") String variantId);
+
+    @POST("ads/campaigns")
+    Call<ApiEnvelope<AdCampaign>> createAdCampaign(@Body CreateAdCampaignRequest body);
+
+    @GET("ads/campaigns/my")
+    Call<ApiEnvelope<PagedList<AdCampaign>>> listMyAdCampaigns(
+            @Query("page") int page, @Query("limit") int limit, @Query("status") String status);
+
+    @PATCH("ads/campaigns/{id}/pause")
+    Call<ApiEnvelope<AdCampaign>> pauseAdCampaign(@Path("id") String id, @Body Map<String, String> emptyBody);
+
+    @PATCH("ads/campaigns/{id}/resume")
+    Call<ApiEnvelope<AdCampaign>> resumeAdCampaign(@Path("id") String id, @Body Map<String, String> emptyBody);
 }

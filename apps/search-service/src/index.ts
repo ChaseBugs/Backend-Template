@@ -15,6 +15,50 @@ const logger = createLogger({ service: 'search-service', level: process.env.LOG_
 
 const OPENSEARCH_INDEX = process.env.OPENSEARCH_INDEX_PRODUCTS ?? 'products';
 const CACHE_TTL = parseInt(process.env.SEARCH_CACHE_TTL_SECONDS ?? '300', 10);
+const ADS_SERVICE_URL = process.env.ADS_SERVICE_URL ?? 'http://localhost:3013';
+const INTERNAL_SERVICE_TOKEN = process.env.INTERNAL_SERVICE_TOKEN ?? 'dev-internal-token';
+
+// Tags sponsored-campaign products in a (possibly cached) result page, boosts them to
+// the front, and fires an impression ping for each — done outside the result cache so
+// sponsorship state and impression counts stay live even when OpenSearch results are
+// served from cache. ads-service being unreachable degrades to plain search, silently.
+async function applySponsorship(result: { products: Array<Record<string, any>> }): Promise<void> {
+  const productIds = result.products.map((p) => p.productId).filter(Boolean);
+  if (productIds.length === 0) return;
+  try {
+    const response = await fetch(
+      `${ADS_SERVICE_URL}/internal/ads/active-by-products?productIds=${productIds.map(encodeURIComponent).join(',')}`,
+      { headers: { 'x-internal-service-token': INTERNAL_SERVICE_TOKEN }, signal: AbortSignal.timeout(2000) },
+    );
+    if (!response.ok) return;
+    const body = await response.json() as { data?: Array<{ campaignId: string; productId: string; costPerClick: number }> };
+    const offers = body.data ?? [];
+    if (offers.length === 0) return;
+
+    const offerByProduct = new Map(offers.map((offer) => [offer.productId, offer]));
+    const sponsoredCampaignIds: string[] = [];
+    for (const product of result.products) {
+      const offer = offerByProduct.get(product.productId);
+      if (offer) {
+        product.sponsored = true;
+        product.campaignId = offer.campaignId;
+        sponsoredCampaignIds.push(offer.campaignId);
+      }
+    }
+    result.products.sort((a, b) => Number(!!b.sponsored) - Number(!!a.sponsored));
+
+    if (sponsoredCampaignIds.length > 0) {
+      fetch(`${ADS_SERVICE_URL}/internal/ads/impressions`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-internal-service-token': INTERNAL_SERVICE_TOKEN },
+        body: JSON.stringify({ campaignIds: sponsoredCampaignIds }),
+        signal: AbortSignal.timeout(2000),
+      }).catch(() => { /* a lost impression ping shouldn't fail the search request */ });
+    }
+  } catch {
+    // ads-service unavailable — search still works, just without sponsorship this request
+  }
+}
 
 const SearchQuerySchema = z.object({
   q: z.string().trim().max(200).optional(),
@@ -147,7 +191,11 @@ async function bootstrap(): Promise<void> {
       const queryHash = createHash('md5').update(JSON.stringify({ ...parsed.data, cacheVersion })).digest('hex');
       const cacheKey = `search:${queryHash}`;
       const cached = await (redis as any).get(cacheKey);
-      if (cached) return res.json(successResponse(JSON.parse(cached)));
+      if (cached) {
+        const cachedResult = JSON.parse(cached);
+        await applySponsorship(cachedResult);
+        return res.json(successResponse(cachedResult));
+      }
 
       const from = cursor ? undefined : (page - 1) * limit;
 
@@ -193,6 +241,10 @@ async function bootstrap(): Promise<void> {
 
       // Track popular keyword
       if (q) await redis.zincrby('search:popular', 1, q);
+
+      // Sponsorship is applied after caching the base result so cached pages stay
+      // sponsorship-neutral and every request (cached or not) gets a fresh check.
+      await applySponsorship(result);
 
       res.json(successResponse(result));
     } catch (err) { next(err); }

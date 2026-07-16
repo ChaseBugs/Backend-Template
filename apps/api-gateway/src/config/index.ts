@@ -25,5 +25,6 @@ export const config = {
     notification: process.env.NOTIFICATION_SERVICE_URL ?? 'http://localhost:3009',
     delivery: process.env.DELIVERY_SERVICE_URL ?? 'http://localhost:3010',
     review: process.env.REVIEW_SERVICE_URL ?? 'http://localhost:3011',
+    ads: process.env.ADS_SERVICE_URL ?? 'http://localhost:3013',
   },
 } as const;

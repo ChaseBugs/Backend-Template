@@ -16,6 +16,7 @@ import com.ecommerce.eshop.admin.AdminAgentsFragment;
 import com.ecommerce.eshop.admin.AdminHomeFragment;
 import com.ecommerce.eshop.admin.AdminProductsFragment;
 import com.ecommerce.eshop.admin.AdminUsersFragment;
+import com.ecommerce.eshop.agent.AgentAdsFragment;
 import com.ecommerce.eshop.agent.AgentEarningsFragment;
 import com.ecommerce.eshop.agent.AgentHomeFragment;
 import com.ecommerce.eshop.agent.AgentOrdersFragment;
@@ -142,6 +143,9 @@ public class MainActivity extends AppCompatActivity {
             return true;
         } else if (id == R.id.nav_agent_earnings) {
             showFragment(new AgentEarningsFragment());
+            return true;
+        } else if (id == R.id.nav_agent_ads) {
+            showFragment(new AgentAdsFragment());
             return true;
         } else if (id == R.id.nav_admin_home) {
             showFragment(new AdminHomeFragment());
