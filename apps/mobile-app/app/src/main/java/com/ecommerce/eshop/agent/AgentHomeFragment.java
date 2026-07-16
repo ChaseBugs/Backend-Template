@@ -21,6 +21,10 @@ import com.ecommerce.eshop.api.ApiCallback;
 import com.ecommerce.eshop.api.ApiClient;
 import com.ecommerce.eshop.api.ApiService;
 import com.ecommerce.eshop.home.ProductAdapter;
+import com.ecommerce.eshop.model.AgentFulfillmentSummary;
+import com.ecommerce.eshop.model.AgentInventorySummary;
+import com.ecommerce.eshop.model.AgentSalesSummary;
+import com.ecommerce.eshop.model.AgentSettlementSummary;
 import com.ecommerce.eshop.model.Order;
 import com.ecommerce.eshop.model.OrderItem;
 import com.ecommerce.eshop.model.PagedList;
@@ -32,6 +36,7 @@ import java.util.List;
 public class AgentHomeFragment extends Fragment {
 
     private static final int RECENT_ORDERS_LIMIT = 3;
+    private static final int PENDING_CALLS = 5;
 
     private ApiService apiService;
     private SwipeRefreshLayout swipeRefresh;
@@ -39,8 +44,14 @@ public class AgentHomeFragment extends Fragment {
     private TextView tvGreeting;
     private TextView tvProductCount;
     private TextView tvOrderCount;
+    private TextView tvActionNeeded;
+    private TextView tvStockAlerts;
+    private TextView tvPayoutPending;
+    private TextView tvPaidOut;
     private LinearLayout recentOrdersList;
     private TextView tvNoOrders;
+
+    private int pendingCalls;
 
     @Nullable
     @Override
@@ -58,6 +69,10 @@ public class AgentHomeFragment extends Fragment {
         tvGreeting = view.findViewById(R.id.tvGreeting);
         tvProductCount = view.findViewById(R.id.tvProductCount);
         tvOrderCount = view.findViewById(R.id.tvOrderCount);
+        tvActionNeeded = view.findViewById(R.id.tvActionNeeded);
+        tvStockAlerts = view.findViewById(R.id.tvStockAlerts);
+        tvPayoutPending = view.findViewById(R.id.tvPayoutPending);
+        tvPaidOut = view.findViewById(R.id.tvPaidOut);
         recentOrdersList = view.findViewById(R.id.recentOrdersList);
         tvNoOrders = view.findViewById(R.id.tvNoOrders);
 
@@ -74,40 +89,109 @@ public class AgentHomeFragment extends Fragment {
     private void load() {
         if (!isAdded()) return;
         progressBar.setVisibility(View.VISIBLE);
+        pendingCalls = PENDING_CALLS;
+
         apiService.listMyProducts(1, 100).enqueue(new ApiCallback<PagedList<Product>>() {
             @Override
             public void onSuccess(PagedList<Product> data) {
                 if (!isAdded()) return;
                 int count = data != null && data.data != null ? data.data.size() : 0;
                 tvProductCount.setText(String.valueOf(count));
+                callFinished();
             }
 
             @Override
             public void onError(String message) {
-                // stat card silently keeps its default — order call below still resolves the refresh spinner
+                callFinished();
             }
         });
 
+        apiService.getAgentSalesSummary(null, null).enqueue(new ApiCallback<AgentSalesSummary>() {
+            @Override
+            public void onSuccess(AgentSalesSummary data) {
+                if (!isAdded()) return;
+                if (data != null && data.totals != null) {
+                    tvOrderCount.setText(String.valueOf(data.totals.orderCount));
+                }
+                callFinished();
+            }
+
+            @Override
+            public void onError(String message) {
+                callFinished();
+            }
+        });
+
+        apiService.getAgentInventorySummary().enqueue(new ApiCallback<AgentInventorySummary>() {
+            @Override
+            public void onSuccess(AgentInventorySummary data) {
+                if (!isAdded()) return;
+                int alerts = data != null ? data.outOfStock + data.lowStock : 0;
+                tvStockAlerts.setText(String.valueOf(alerts));
+                callFinished();
+            }
+
+            @Override
+            public void onError(String message) {
+                callFinished();
+            }
+        });
+
+        apiService.getAgentFulfillmentSummary().enqueue(new ApiCallback<AgentFulfillmentSummary>() {
+            @Override
+            public void onSuccess(AgentFulfillmentSummary data) {
+                if (!isAdded()) return;
+                tvActionNeeded.setText(String.valueOf(data != null ? data.actionNeeded : 0));
+                callFinished();
+            }
+
+            @Override
+            public void onError(String message) {
+                callFinished();
+            }
+        });
+
+        apiService.getAgentSettlementSummary().enqueue(new ApiCallback<AgentSettlementSummary>() {
+            @Override
+            public void onSuccess(AgentSettlementSummary data) {
+                if (!isAdded()) return;
+                if (data != null) {
+                    tvPayoutPending.setText(ProductAdapter.formatWon(data.payoutPending));
+                    tvPaidOut.setText("누적 지급 완료 " + ProductAdapter.formatWon(data.paidOut));
+                }
+                callFinished();
+            }
+
+            @Override
+            public void onError(String message) {
+                callFinished();
+            }
+        });
+
+        // Recent-order cards need the actual order list, not just the sales summary's
+        // aggregate counts, so this call runs alongside the summaries above.
         apiService.listOrders(1, 50).enqueue(new ApiCallback<PagedList<Order>>() {
             @Override
             public void onSuccess(PagedList<Order> data) {
                 if (!isAdded()) return;
-                swipeRefresh.setRefreshing(false);
-                progressBar.setVisibility(View.GONE);
-                List<Order> orders = data != null ? data.data : null;
-                int count = orders != null ? orders.size() : 0;
-                tvOrderCount.setText(String.valueOf(count));
-                bindRecentOrders(orders);
+                bindRecentOrders(data != null ? data.data : null);
             }
 
             @Override
             public void onError(String message) {
                 if (!isAdded()) return;
-                swipeRefresh.setRefreshing(false);
-                progressBar.setVisibility(View.GONE);
                 Toast.makeText(requireContext(), "오류: " + message, Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    private void callFinished() {
+        if (!isAdded()) return;
+        pendingCalls--;
+        if (pendingCalls <= 0) {
+            swipeRefresh.setRefreshing(false);
+            progressBar.setVisibility(View.GONE);
+        }
     }
 
     private void bindRecentOrders(List<Order> orders) {

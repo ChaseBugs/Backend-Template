@@ -7,35 +7,57 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.ecommerce.eshop.R;
+import com.ecommerce.eshop.api.ApiCallback;
+import com.ecommerce.eshop.api.ApiClient;
+import com.ecommerce.eshop.api.ApiService;
+import com.ecommerce.eshop.home.ProductAdapter;
+import com.ecommerce.eshop.model.AgentSalesSummary;
+import com.ecommerce.eshop.model.AgentSettlementSummary;
+
+import java.time.Instant;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
+import java.util.Map;
 
 /**
- * Prototype-faithful earnings screen: no settlement/analytics endpoint is wired here,
- * every figure below is a static display value matching the imported design's mockup content.
+ * 매출/정산 카드와 정산 상태 막대그래프는 실 데이터(GET /orders/agent/summary,
+ * GET /payments/settlements/summary)로 채워진다. "상품별 수익"만 집계 API가 없어
+ * 예시 수치로 남겨두었다 (화면 하단 안내 문구 참고).
  */
 public class AgentEarningsFragment extends Fragment {
 
     private static final String[] PERIOD_LABELS = {"오늘", "이번 주", "이번 달"};
-    private static final String[] PERIOD_TITLES = {"오늘 수익", "이번 주 수익", "이번 달 수익"};
-    private static final String[] PERIOD_AMOUNTS = {"₩58,400", "₩342,800", "₩1,284,000"};
-    private static final String[] PERIOD_DELTAS = {"전일 대비 +6%", "전주 대비 +12%", "전달 대비 +18%"};
-    private static final int[] BAR_HEIGHTS_DP = {40, 65, 30, 80, 55, 90, 70};
-    private static final String[] BAR_LABELS = {"월", "화", "수", "목", "금", "토", "일"};
+    private static final String[] PERIOD_TITLES = {"오늘 매출", "이번 주 매출", "이번 달 매출"};
+    private static final long[] PERIOD_DAYS = {1, 7, 30};
+
+    private static final String[] SETTLEMENT_STATUSES = {"PENDING", "PROCESSING", "COMPLETED", "HELD"};
+    private static final String[] SETTLEMENT_LABELS = {"지급대기", "처리중", "지급완료", "보류"};
 
     private static final String[] PRODUCT_NAMES = {"무선 이어폰 프로", "미니멀 백팩", "스마트 워치 밴드"};
     private static final String[] PRODUCT_AMOUNTS = {"₩186,000", "₩94,200", "₩62,600"};
 
+    private ApiService apiService;
+    private SwipeRefreshLayout swipeRefresh;
+    private ProgressBar progressBar;
     private LinearLayout periodToggle;
     private TextView tvPeriodLabel;
     private TextView tvEarningsAmount;
-    private LinearLayout earningsBarChart;
+    private TextView tvPeriodOrders;
+    private LinearLayout settlementBarChart;
+    private TextView tvPayoutPending;
+    private TextView tvPaidOut;
+    private TextView tvLifetimeCommission;
     private LinearLayout byProductList;
     private int selectedPeriod = 1;
 
@@ -48,17 +70,30 @@ public class AgentEarningsFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        apiService = ApiClient.getApiService(requireContext());
 
+        swipeRefresh = view.findViewById(R.id.swipeRefresh);
+        progressBar = view.findViewById(R.id.progressBar);
         periodToggle = view.findViewById(R.id.periodToggle);
         tvPeriodLabel = view.findViewById(R.id.tvPeriodLabel);
         tvEarningsAmount = view.findViewById(R.id.tvEarningsAmount);
-        earningsBarChart = view.findViewById(R.id.earningsBarChart);
+        tvPeriodOrders = view.findViewById(R.id.tvPeriodOrders);
+        settlementBarChart = view.findViewById(R.id.settlementBarChart);
+        tvPayoutPending = view.findViewById(R.id.tvPayoutPending);
+        tvPaidOut = view.findViewById(R.id.tvPaidOut);
+        tvLifetimeCommission = view.findViewById(R.id.tvLifetimeCommission);
         byProductList = view.findViewById(R.id.byProductList);
 
         buildPeriodToggle();
-        buildBarChart();
         buildProductList();
-        applyPeriod();
+        swipeRefresh.setOnRefreshListener(this::loadAll);
+        loadAll();
+    }
+
+    private void loadAll() {
+        applyPeriodStyles();
+        loadSalesForPeriod();
+        loadSettlement();
     }
 
     private void buildPeriodToggle() {
@@ -74,13 +109,14 @@ public class AgentEarningsFragment extends Fragment {
             tab.setLayoutParams(params);
             tab.setOnClickListener(v -> {
                 selectedPeriod = index;
-                applyPeriod();
+                applyPeriodStyles();
+                loadSalesForPeriod();
             });
             periodToggle.addView(tab);
         }
     }
 
-    private void applyPeriod() {
+    private void applyPeriodStyles() {
         for (int i = 0; i < periodToggle.getChildCount(); i++) {
             TextView tab = (TextView) periodToggle.getChildAt(i);
             boolean selected = i == selectedPeriod;
@@ -88,37 +124,108 @@ public class AgentEarningsFragment extends Fragment {
             tab.setTextColor(ContextCompat.getColor(requireContext(), selected ? R.color.white : R.color.dash_text_secondary));
         }
         tvPeriodLabel.setText(PERIOD_TITLES[selectedPeriod]);
-        tvEarningsAmount.setText(PERIOD_AMOUNTS[selectedPeriod]);
     }
 
-    private void buildBarChart() {
-        earningsBarChart.removeAllViews();
-        int maxHeightDp = 90;
-        for (int i = 0; i < BAR_HEIGHTS_DP.length; i++) {
+    private void loadSalesForPeriod() {
+        if (!isAdded()) return;
+        progressBar.setVisibility(View.VISIBLE);
+        Instant to = Instant.now();
+        Instant from = to.minus(PERIOD_DAYS[selectedPeriod], ChronoUnit.DAYS);
+        String fromIso = DateTimeFormatter.ISO_INSTANT.format(from);
+        String toIso = DateTimeFormatter.ISO_INSTANT.format(to);
+
+        apiService.getAgentSalesSummary(fromIso, toIso).enqueue(new ApiCallback<AgentSalesSummary>() {
+            @Override
+            public void onSuccess(AgentSalesSummary data) {
+                if (!isAdded()) return;
+                swipeRefresh.setRefreshing(false);
+                progressBar.setVisibility(View.GONE);
+                if (data != null && data.totals != null) {
+                    tvEarningsAmount.setText(ProductAdapter.formatWon(data.totals.grossSales));
+                    tvPeriodOrders.setText("주문 " + data.totals.orderCount + "건 · 판매 " + data.totals.unitsSold + "개");
+                }
+            }
+
+            @Override
+            public void onError(String message) {
+                if (!isAdded()) return;
+                swipeRefresh.setRefreshing(false);
+                progressBar.setVisibility(View.GONE);
+                Toast.makeText(requireContext(), "오류: " + message, Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void loadSettlement() {
+        if (!isAdded()) return;
+        apiService.getAgentSettlementSummary().enqueue(new ApiCallback<AgentSettlementSummary>() {
+            @Override
+            public void onSuccess(AgentSettlementSummary data) {
+                if (!isAdded()) return;
+                if (data != null) {
+                    tvPayoutPending.setText(ProductAdapter.formatWon(data.payoutPending));
+                    tvPaidOut.setText(ProductAdapter.formatWon(data.paidOut));
+                    tvLifetimeCommission.setText(ProductAdapter.formatWon(data.lifetimeCommission));
+                    buildSettlementBarChart(data.byStatus);
+                }
+            }
+
+            @Override
+            public void onError(String message) {
+                if (!isAdded()) return;
+                Toast.makeText(requireContext(), "오류: " + message, Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void buildSettlementBarChart(Map<String, AgentSettlementSummary.StatusBreakdown> byStatus) {
+        settlementBarChart.removeAllViews();
+        if (byStatus == null) return;
+
+        int maxCount = 1;
+        for (String status : SETTLEMENT_STATUSES) {
+            AgentSettlementSummary.StatusBreakdown row = byStatus.get(status);
+            if (row != null) maxCount = Math.max(maxCount, row.count);
+        }
+
+        int maxBarHeightPx = dp(80);
+        for (int i = 0; i < SETTLEMENT_STATUSES.length; i++) {
+            AgentSettlementSummary.StatusBreakdown row = byStatus.get(SETTLEMENT_STATUSES[i]);
+            int count = row != null ? row.count : 0;
+            int barHeightPx = count == 0 ? 0 : Math.max(dp(4), (int) ((count / (float) maxCount) * maxBarHeightPx));
+
             LinearLayout column = new LinearLayout(requireContext());
             column.setOrientation(LinearLayout.VERTICAL);
             column.setGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
             column.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
 
+            TextView tvCount = new TextView(requireContext());
+            tvCount.setText(String.valueOf(count));
+            tvCount.setTextColor(ContextCompat.getColor(requireContext(), R.color.dash_text));
+            tvCount.setTextSize(11);
+
             FrameLayout barSlot = new FrameLayout(requireContext());
-            barSlot.setLayoutParams(new LinearLayout.LayoutParams(dp(18), dp(maxHeightDp)));
+            LinearLayout.LayoutParams slotParams = new LinearLayout.LayoutParams(dp(24), maxBarHeightPx);
+            slotParams.topMargin = dp(2);
+            barSlot.setLayoutParams(slotParams);
 
             View bar = new View(requireContext());
-            FrameLayout.LayoutParams barParams = new FrameLayout.LayoutParams(dp(18), dp(BAR_HEIGHTS_DP[i]));
+            FrameLayout.LayoutParams barParams = new FrameLayout.LayoutParams(dp(24), barHeightPx);
             barParams.gravity = Gravity.BOTTOM;
             bar.setLayoutParams(barParams);
             bar.setBackgroundResource(R.drawable.dash_bar_segment);
             barSlot.addView(bar);
 
             TextView tvLabel = new TextView(requireContext());
-            tvLabel.setText(BAR_LABELS[i]);
+            tvLabel.setText(SETTLEMENT_LABELS[i]);
             tvLabel.setTextColor(ContextCompat.getColor(requireContext(), R.color.dash_text_secondary));
             tvLabel.setTextSize(10);
             tvLabel.setGravity(Gravity.CENTER_HORIZONTAL);
 
+            column.addView(tvCount);
             column.addView(barSlot);
             column.addView(tvLabel);
-            earningsBarChart.addView(column);
+            settlementBarChart.addView(column);
         }
     }
 

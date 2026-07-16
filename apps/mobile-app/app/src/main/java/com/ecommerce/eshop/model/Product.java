@@ -12,6 +12,7 @@ import java.util.List;
 public class Product implements Serializable {
     public String _id;
     public String id;
+    public String catalogVariantId;
     public String agentId;
     public String agentName;
     public String categoryId;

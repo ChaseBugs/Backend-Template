@@ -15,6 +15,8 @@ import com.ecommerce.eshop.R;
 import com.ecommerce.eshop.api.ApiCallback;
 import com.ecommerce.eshop.api.ApiClient;
 import com.ecommerce.eshop.api.ApiService;
+import com.ecommerce.eshop.home.ProductAdapter;
+import com.ecommerce.eshop.model.BuyBoxView;
 import com.ecommerce.eshop.model.MessageResponse;
 import com.ecommerce.eshop.model.Product;
 import com.ecommerce.eshop.model.request.UpdateProductRequest;
@@ -34,6 +36,9 @@ public class AgentProductEditActivity extends AppCompatActivity {
     private TextView tvViewCount;
     private TextView tvRating;
     private TextView tvRejectionReason;
+    private View buyBoxCard;
+    private TextView tvBuyBoxRank;
+    private TextView tvBuyBoxAction;
     private EditText etName;
     private EditText etDescription;
     private EditText etPrice;
@@ -62,6 +67,9 @@ public class AgentProductEditActivity extends AppCompatActivity {
         tvViewCount = findViewById(R.id.tvViewCount);
         tvRating = findViewById(R.id.tvRating);
         tvRejectionReason = findViewById(R.id.tvRejectionReason);
+        buyBoxCard = findViewById(R.id.buyBoxCard);
+        tvBuyBoxRank = findViewById(R.id.tvBuyBoxRank);
+        tvBuyBoxAction = findViewById(R.id.tvBuyBoxAction);
         etName = findViewById(R.id.etName);
         etDescription = findViewById(R.id.etDescription);
         etPrice = findViewById(R.id.etPrice);
@@ -86,6 +94,7 @@ public class AgentProductEditActivity extends AppCompatActivity {
                 setLoading(false);
                 if (data == null) return;
                 bind(data);
+                loadBuyBox(data.catalogVariantId);
             }
 
             @Override
@@ -114,6 +123,29 @@ public class AgentProductEditActivity extends AppCompatActivity {
         if (product.tags != null) etTags.setText(TextUtils.join(", ", product.tags));
         String firstImage = product.firstImage();
         if (firstImage != null) etImageUrl.setText(firstImage);
+    }
+
+    private void loadBuyBox(String catalogVariantId) {
+        if (TextUtils.isEmpty(catalogVariantId)) return;
+        apiService.getBuyBox(catalogVariantId).enqueue(new ApiCallback<BuyBoxView>() {
+            @Override
+            public void onSuccess(BuyBoxView data) {
+                if (data == null || data.myOffer == null) return;
+                buyBoxCard.setVisibility(View.VISIBLE);
+                tvBuyBoxRank.setText(data.myOffer.rank + "위 / 전체 " + data.offerCount + "개 오퍼 · 최저가 "
+                        + ProductAdapter.formatWon(data.lowestPrice != null ? data.lowestPrice : 0));
+                if (data.iAmWinning) {
+                    tvBuyBoxAction.setText("현재 Buy Box를 차지하고 있습니다.");
+                } else if (data.priceToWin != null) {
+                    tvBuyBoxAction.setText(ProductAdapter.formatWon(data.priceToWin) + " 낮추면 1위가 됩니다.");
+                }
+            }
+
+            @Override
+            public void onError(String message) {
+                // Buy Box is a supplementary tile — a failed lookup just leaves it hidden.
+            }
+        });
     }
 
     private void save() {

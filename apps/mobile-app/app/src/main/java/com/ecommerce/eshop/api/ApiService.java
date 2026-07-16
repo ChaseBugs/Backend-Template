@@ -2,8 +2,13 @@ package com.ecommerce.eshop.api;
 
 import com.ecommerce.eshop.model.AdminProductList;
 import com.ecommerce.eshop.model.AdminUser;
+import com.ecommerce.eshop.model.AgentFulfillmentSummary;
+import com.ecommerce.eshop.model.AgentInventorySummary;
 import com.ecommerce.eshop.model.AgentProfile;
+import com.ecommerce.eshop.model.AgentSalesSummary;
+import com.ecommerce.eshop.model.AgentSettlementSummary;
 import com.ecommerce.eshop.model.ApiEnvelope;
+import com.ecommerce.eshop.model.BuyBoxView;
 import com.ecommerce.eshop.model.Cart;
 import com.ecommerce.eshop.model.DashboardSummary;
 import com.ecommerce.eshop.model.LoginResponse;
@@ -121,4 +126,19 @@ public interface ApiService {
     Call<ApiEnvelope<AdminProductList>> listAdminProducts(
             @Query("page") int page, @Query("limit") int limit,
             @Query("status") String status, @Query("search") String search);
+
+    @GET("orders/agent/summary")
+    Call<ApiEnvelope<AgentSalesSummary>> getAgentSalesSummary(@Query("from") String from, @Query("to") String to);
+
+    @GET("payments/settlements/summary")
+    Call<ApiEnvelope<AgentSettlementSummary>> getAgentSettlementSummary();
+
+    @GET("inventory/agent/summary")
+    Call<ApiEnvelope<AgentInventorySummary>> getAgentInventorySummary();
+
+    @GET("deliveries/my/summary")
+    Call<ApiEnvelope<AgentFulfillmentSummary>> getAgentFulfillmentSummary();
+
+    @GET("products/catalog/variants/{variantId}/buybox")
+    Call<ApiEnvelope<BuyBoxView>> getBuyBox(@Path("variantId") String variantId);
 }
